@@ -1,4 +1,4 @@
-#line 1 "C:\\Users\\ztzac\\Documents\\Arduino\\generated_examples\\BLE_scan\\terminal.h"
+#line 1 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\terminal.h"
 #define MAX_BUFFER_SIZE (100)
 #define MAX_ARGS (4)
 #define NUM_PERSISTENT_LINES 8

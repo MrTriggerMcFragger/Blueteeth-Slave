@@ -1,4 +1,4 @@
-#line 1 "C:\\Users\\ztzac\\Documents\\Arduino\\generated_examples\\BLE_scan\\bluetooth_scanning.h"
+#line 1 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\bluetooth_scanning.h"
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>

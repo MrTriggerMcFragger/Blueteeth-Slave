@@ -1,6 +1,6 @@
-#line 1 "C:\\Users\\ztzac\\Documents\\Arduino\\generated_examples\\BLE_scan\\.vscode\\arduino.json"
+#line 1 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\.vscode\\arduino.json"
 {
-    "sketch": "BLE_scan.ino",
+    "sketch": "Blueteeth-Slave.ino",
     "port": "COM9",
     "output": "build",
     "board": "esp32:esp32:uPesy_wroom",
