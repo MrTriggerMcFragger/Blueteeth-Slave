@@ -132,6 +132,7 @@ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\Blueteeth-Slave.ino
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/esp_hw_support/include/soc/esp32/spiram.h \
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\cores\esp32/io_pin_remap.h \
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\cores\esp32/Arduino.h \
+ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\Blueteeth-Slave.h \
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\ESP32-A2DP\src/A2DPVolumeControl.h \
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\ESP32-A2DP\src/SoundData.h \
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\ESP32-A2DP\src/BluetoothA2DP.h \
@@ -203,4 +204,6 @@ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\Blueteeth-Slave.ino
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEScan.h \
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEAdvertisedDevice.h \
  C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\bluetooth_scanning.h \
- C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\terminal.h
+ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\terminal.h \
+ C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\Blueteeth-Internal-Network-Stack/BlueteethInternalNetworkStack.h \
+ C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\cores\esp32/HardwareSerial.h

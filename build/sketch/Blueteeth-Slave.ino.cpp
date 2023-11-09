@@ -1,24 +1,6 @@
 #include <Arduino.h>
 #line 1 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-#include <A2DPVolumeControl.h>
-#include <BluetoothA2DP.h>
-#include <BluetoothA2DPCommon.h>
-#include <BluetoothA2DPSink.h>
-#include <BluetoothA2DPSinkQueued.h>
-#include <BluetoothA2DPSource.h>
-#include <config.h>
-#include <SoundData.h>
-
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
-#include "bluetooth_scanning.h"
-
-#include "terminal.h"
-
-
-#define MAX_BUFFER_SIZE 100
+#include "Blueteeth-Slave.h"
 
 int scanTime = 5; //In seconds
 char input_buffer[MAX_BUFFER_SIZE];
@@ -30,17 +12,18 @@ terminalParameters_t terminalParameters;
 int discoveryIdx;
 
 BluetoothA2DPSource a2dp_source;
+BlueteethBaseStack internalNetworkStack(10, &Serial1, &Serial2);
 
 // callback 
-#line 33 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 16 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t get_sound_data(Frame *data, int32_t frameCount);
-#line 40 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 23 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void setup();
-#line 89 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 72 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void loop();
-#line 97 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 80 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void terminalInputTask(void * params);
-#line 33 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 16 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t get_sound_data(Frame *data, int32_t frameCount) {
     // generate your sound data 
     // return the effective length (in frames) of the generated sound  (which usually is identical with the requested len)
@@ -52,6 +35,9 @@ void setup() {
   
   //Start Serial comms
   Serial.begin(115200);
+  Serial1;
+  Serial2;
+  Serial;
   uartMutex = xSemaphoreCreateMutex(); //mutex for uart
   
   //Setup Peripherals
@@ -67,9 +53,6 @@ void setup() {
   NULL, 
   1, // Priority
   &terminalInputTaskHandle); // Task handler
-
-  // Serial.println("Starting scheduler");
-  // vTaskStartScheduler();
 
 }
 

@@ -10,6 +10,7 @@ terminalParameters_t terminalParameters;
 int discoveryIdx;
 
 BluetoothA2DPSource a2dp_source;
+BlueteethBaseStack internalNetworkStack(10, &Serial1, &Serial2);
 
 // callback 
 int32_t get_sound_data(Frame *data, int32_t frameCount) {
@@ -38,9 +39,6 @@ void setup() {
   NULL, 
   1, // Priority
   &terminalInputTaskHandle); // Task handler
-
-  // Serial.println("Starting scheduler");
-  // vTaskStartScheduler();
 
 }
 
