@@ -15,6 +15,8 @@ BluetoothA2DPSource a2dpSource;
 BlueteethBaseStack internalNetworkStack(10, &packetReceptionTaskHandle, &Serial2, &Serial1);
 BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need pointer for run-time polymorphism
 
+uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
+
 // callback 
 int32_t get_sound_data(Frame *data, int32_t frameCount) {
     // generate your sound data 
@@ -63,6 +65,39 @@ void loop() {
 }
 
 
+inline void int2Bytes(uint32_t integer, uint8_t * byteArray){
+  for (int offset = 0; offset < 32; offset += 8){
+    byteArray[offset/8] = integer >> offset; //assignment will truncate so only first 8 bits are assigned
+  }
+}
+
+/*  Unpacks byte array into a 32 bit integer
+*   
+*   @byteArray - array containing 4 bytes corresponding to a 32 bit integer
+*   @return - the resulting integer
+*/  
+inline uint32_t bytes2Int(uint8_t * byteArray){
+  uint32_t integer = 0;
+  for (int offset = 0; offset < 32; offset += 8){
+    integer += byteArray[offset/8] << offset; 
+  }
+  return integer;
+}
+
+/*  Performs a checksum of all bytes in the buffer
+*   
+*   @buffer - buffer containing bytes
+*   @size - the number of bytes in the buffer
+*   @return - the checksum of the byte buffer
+*/  
+uint32_t inline byteBufferCheckSum(uint8_t * buffer, uint32_t size){
+  uint32_t sum;
+  for (int i = 0; i < size; i++){
+    sum += buffer[i];
+  }
+  return sum;
+}
+
 /*  Task that runs when a new Blueteeth packet is received. 
 *
 */  
@@ -84,8 +119,17 @@ void packetReceptionTask (void * pvParams){
 
         Serial.printf("The packet payload before sending is %s\n\r", (char *) response.payload);
 
-        internalNetworkStack.queuePacket(1, response);
+        internalNetworkStack.queuePacket(true, response);
         break;
+
+      case STREAM: {
+        response.type = STREAM_RESULTS;
+        uint32_t checkSum = byteBufferCheckSum(internalNetworkStack.dataBuffer, MAX_DATA_BUFFER_SIZE);
+        int2Bytes(checkSum, response.payload);
+        int2Bytes(streamTime, response.payload + 4);
+        internalNetworkStack.queuePacket(true, response);
+        break;
+      }
 
       default:
         Serial.print("Unknown packet type received.\n\r"); //DEBUG STATEMENT
@@ -94,20 +138,6 @@ void packetReceptionTask (void * pvParams){
 
   }
 } 
-
-/*  Performs a checksum of all bytes in the buffer
-*   
-*   @buffer - buffer containing bytes
-*   @size - the number of bytes in the buffer
-*   @return - the checksum of the byte buffer
-*/  
-uint32_t inline byteBufferCheckSum(uint8_t * buffer, uint32_t size){
-  uint32_t sum;
-  for (int i = 0; i < size; i++){
-    sum += buffer[i];
-  }
-  return sum;
-}
 
 /*  Prints all characters in a character buffer
 *
@@ -180,7 +210,7 @@ void terminalInputTask(void * params) {
             Serial.print("\0332K"); //clear line
             Serial.print("*** SCAN RESULTS START ***");
             Serial.print("\0338"); //restore cursor
-            Serial.print("*** SCAN RESULTS END   ***");
+            Serial.print("*** SCAN RESULTS END   ***\n\r");
 
             break;
 
