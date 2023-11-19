@@ -2,7 +2,7 @@
 #define MAX_ARGS (4)
 #define NUM_PERSISTENT_LINES 8
 
-enum action {NONE, SCAN, SELECT, STREAM};
+#include "BlueteethInternalNetworkStack.h"
 
 typedef struct {
   int scanIdx;
@@ -41,13 +41,21 @@ inline void clear_buffer(char * buffer, int buffer_entries){
 //Purpose: map arguments to corresponding actions.
 //Inputs: char * arguments (array of pointers to argument strings), num_args (the number of actual arguments received)  
 //Outputs: action (the action that should be performed based on argument mapping)
-action argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, terminalParameters_t & terminalParameters){
+PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, terminalParameters_t & terminalParameters){
 
     if (0 == strcmp(arguments[0], "help")){ 
       format_terminal_for_new_entry(1);
       Serial.print("Valid options are: clear and scan.\n\r");
       format_new_terminal_entry();
     }
+
+    else if (0 == strcmp(arguments[0], "ping")){ 
+      format_terminal_for_new_entry(1);
+      Serial.print("Starting ping\n\r");
+      format_new_terminal_entry();
+      return PING;
+    }
+
     else if (0 == strcmp(arguments[0], "scan")){ 
       format_terminal_for_new_entry(1);
       Serial.print("Scan starting\n\r");
@@ -71,11 +79,16 @@ action argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, terminalPa
     else if (0 == strcmp(arguments[0], "stream")){ 
       return STREAM;
     }
+    
+    else if (0 == strcmp(arguments[0], "test")){ 
+      return TEST;
+    }
 
     else if (0 == strcmp(arguments[0], "clear")){
       Serial.print("\033[H");
       Serial.printf("\33[2J");      
     }
+    
     else{
       format_terminal_for_new_entry(1);
       Serial.print("Invalid entry. Type help to find out what options are available.\n\r");
@@ -90,7 +103,7 @@ action argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, terminalPa
 //Purpose: handle the user's input.
 //Inputs: user_input (C string containing the user input)
 //Outputs: action (enum corresponding to action to be performed)
-action handle_input(char * user_input, terminalParameters_t & terminalParameters){
+PacketType handle_input(char * user_input, terminalParameters_t & terminalParameters){
     
     const char delimiter[2] = " ";
     char * arguments[MAX_ARGS];

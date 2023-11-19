@@ -7,23 +7,28 @@ char input_buffer[MAX_BUFFER_SIZE];
 BLEScan* pBLEScan;
 SemaphoreHandle_t uartMutex;
 TaskHandle_t terminalInputTaskHandle;
+TaskHandle_t packetReceptionTaskHandle;
 
 terminalParameters_t terminalParameters;
 int discoveryIdx;
 
-BluetoothA2DPSource a2dp_source;
-BlueteethBaseStack internalNetworkStack(10, &Serial1, &Serial2);
+BluetoothA2DPSource a2dpSource;
+
+BlueteethBaseStack internalNetworkStack(10, &packetReceptionTaskHandle, &Serial2, &Serial1);
+BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need pointer for run-time polymorphism
 
 // callback 
-#line 16 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 19 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t get_sound_data(Frame *data, int32_t frameCount);
-#line 23 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 29 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void setup();
-#line 72 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 60 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void loop();
-#line 80 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 70 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+void packetReceptionTask(void * pvParams);
+#line 140 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void terminalInputTask(void * params);
-#line 16 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 19 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t get_sound_data(Frame *data, int32_t frameCount) {
     // generate your sound data 
     // return the effective length (in frames) of the generated sound  (which usually is identical with the requested len)
@@ -31,15 +36,17 @@ int32_t get_sound_data(Frame *data, int32_t frameCount) {
     return frameCount;
 }
 
+#define RXD1 (18)
+#define TXD1 (19)
+
 void setup() {
   
   //Start Serial comms
   Serial.begin(115200);
-  Serial1;
-  Serial2;
-  Serial;
   uartMutex = xSemaphoreCreateMutex(); //mutex for uart
-  
+
+  internalNetworkStack.begin();
+
   //Setup Peripherals
   pBLEScan = bleScanSetup();
 
@@ -54,9 +61,69 @@ void setup() {
   1, // Priority
   &terminalInputTaskHandle); // Task handler
 
+  xTaskCreate(packetReceptionTask, // Task function
+  "PACKET RECEPTION HANDLER", // Task name
+  4096, // Stack size 
+  NULL, 
+  1, // Priority
+  &packetReceptionTaskHandle); // Task handler
+
 }
 
+void loop() {
+  // Serial1.print("UART working!\n\r");
+  // delay(200);
+}
+
+int checkSum;
+
+/*  Task that runs when a new Blueteeth packet is received. 
+*
+*/  
+void packetReceptionTask (void * pvParams){
+  while(1){
+    vTaskSuspend(packetReceptionTaskHandle);
+    Serial.print("Processing received packet...\n\r");
+    BlueteethPacket packetReceived = internalNetworkStack.getPacket();
+
+    uint8_t srcAddr = internalNetworkStack.getAddress();
+    BlueteethPacket response(false, srcAddr, 0); //Need to declare prior to switch statement to avoid "crosses initilization" error.
+
+    switch(packetReceived.type){
+      
+      case PING:
+        Serial.print("Ping packet type received. Responding...\n\r"); //DEBUG STATEMENT
+        response.type = PING;
+        sprintf( (char *) response.payload, "%d", srcAddr);
+
+        Serial.printf("The packet payload before sending is %s\n\r", (char *) response.payload);
+
+        internalNetworkStack.queuePacket(1, response);
+        break;
+
+      default:
+        Serial.print("Unknown packet type received.\n\r"); //DEBUG STATEMENT
+        break;
+    }
+
+  }
+} 
+
+
+uint32_t inline byteBufferCheckSum(uint8_t * buffer, uint32_t size){
+  uint32_t sum;
+  for (int i = 0; i < size; i++){
+    sum += buffer[i];
+  }
+  return sum;
+}
+
+/*  Prints all characters in a character buffer
+*
+*   @endPos - last buffer position that should be printed
+*/  
 void inline printBuffer(int endPos){
+
   Serial.print("\0337"); //save cursor positon
   Serial.printf("\033[%dF", endPos + 1); //go up N + 1 lines
   for (int i = 0; i <= endPos; i++) {
@@ -80,14 +147,9 @@ void inline printBuffer(int endPos){
   Serial.print("\0338"); //restore cursor position
 }
 
-void loop() {
-  delay(100);
-}
-
-//Name: terminalInputTask
-//Purpose: Take in user inputs and handle actions.
-//Inputs: None
-//Outputs: None
+/*  Take in user inputs and handle pre-defined commands.
+*
+*/
 void terminalInputTask(void * params) {
 
   clear_buffer(input_buffer, sizeof(input_buffer));
@@ -111,7 +173,7 @@ void terminalInputTask(void * params) {
         input_buffer[buffer_pos] = '\0'; //Get rid of the carriage return
         Serial.print("\n\r");
         
-        printBuffer(buffer_pos);
+        // printBuffer(buffer_pos);
 
         switch ( handle_input(input_buffer, terminalParameters) ){
           
@@ -131,6 +193,11 @@ void terminalInputTask(void * params) {
 
             break;
 
+          case TEST:
+            Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer, MAX_DATA_BUFFER_SIZE));
+            // vTaskResume(packetReceptionTaskHandle);
+            break;
+
           case SELECT:
             if ((terminalParameters.scanIdx > 0) && (terminalParameters.scanIdx < discoveryIdx)){
               btTarget = scanResults.getDevice(terminalParameters.scanIdx).getName().c_str(); 
@@ -143,7 +210,7 @@ void terminalInputTask(void * params) {
 
           case STREAM:
             
-            a2dp_source.start(btTarget, get_sound_data ); 
+            a2dpSource.start(btTarget, get_sound_data ); 
 
           default:
             break;
