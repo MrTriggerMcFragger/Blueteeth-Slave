@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #line 1 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 #include "Blueteeth-Slave.h"
+#include "math.h"
 
 int scanTime = 5; //In seconds
 char input_buffer[MAX_BUFFER_SIZE];
@@ -20,30 +21,49 @@ BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need poi
 uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 
 // callback 
-#line 21 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-int32_t get_sound_data(Frame *data, int32_t frameCount);
-#line 31 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 22 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount);
+#line 51 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void setup();
-#line 62 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 86 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void loop();
-#line 68 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 92 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void int2Bytes(uint32_t integer, uint8_t * byteArray);
-#line 79 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 103 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 uint32_t bytes2Int(uint8_t * byteArray);
-#line 104 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 128 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void packetReceptionTask(void * pvParams);
-#line 174 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 203 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void terminalInputTask(void * params);
-#line 21 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-int32_t get_sound_data(Frame *data, int32_t frameCount) {
-    // generate your sound data 
-    // return the effective length (in frames) of the generated sound  (which usually is identical with the requested len)
-    // 1 frame is 2 channels * 2 bytes = 4 bytes
-    return frameCount;
-}
+#line 22 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
+  
+  int zeroPositionIncrement = 1; //Default is all zeros
+  
+  int zeroFrames = frameCount - internalNetworkStack.dataBuffer.size()/2;
+  
+  if (zeroFrames > 0){
+    zeroPositionIncrement = ceil(internalNetworkStack.dataBuffer.size()/2/zeroFrames);
+  }
+  
+  int16_t sample;
+  
+  for (int i = 0; i < frameCount; i++){
+    
+    if (sample % zeroPositionIncrement == 0 ){
+      sample = 0;
+    }
+    else {
+      sample = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
+      sample += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
+    }
+    
+    frames[i].channel1 = sample;
+    frames[i].channel2 = sample;
+  }
 
-#define RXD1 (18)
-#define TXD1 (19)
+  return frameCount;
+}
 
 void setup() {
   
@@ -73,6 +93,10 @@ void setup() {
   NULL, 
   1, // Priority
   &packetReceptionTaskHandle); // Task handler
+
+  // a2dpSource.set_auto_reconnect(true);
+  // a2dpSource.start("SRS-XB13", a2dpSourceData); 
+  // a2dpSource.set_volume(10);
 
 }
 
@@ -107,9 +131,9 @@ inline uint32_t bytes2Int(uint8_t * byteArray){
 *   @size - the number of bytes in the buffer
 *   @return - the checksum of the byte buffer
 */  
-uint32_t inline byteBufferCheckSum(uint8_t * buffer, uint32_t size){
+uint32_t inline byteBufferCheckSum(deque<uint8_t> buffer){
   uint32_t sum;
-  for (int i = 0; i < size; i++){
+  for (int i = 0; i < buffer.size(); i++){
     sum += buffer[i];
   }
   return sum;
@@ -128,7 +152,11 @@ void packetReceptionTask (void * pvParams){
     BlueteethPacket response(false, srcAddr, 0); //Need to declare prior to switch statement to avoid "crosses initilization" error.
 
     switch(packetReceived.type){
-      
+      case CONNECT:
+        a2dpSource.set_auto_reconnect(true);
+        a2dpSource.start("SRS-XB13", a2dpSourceDataRetrieval); 
+        a2dpSource.set_volume(10);
+        break;
       case PING:
         Serial.print("Ping packet type received. Responding...\n\r"); //DEBUG STATEMENT
         response.type = PING;
@@ -141,10 +169,11 @@ void packetReceptionTask (void * pvParams){
 
       case STREAM: {
         response.type = STREAM_RESULTS;
-        uint32_t checkSum = byteBufferCheckSum(internalNetworkStack.dataBuffer, MAX_DATA_BUFFER_SIZE);
+        uint32_t checkSum = byteBufferCheckSum(internalNetworkStack.dataBuffer);
         int2Bytes(checkSum, response.payload);
         int2Bytes(streamTime, response.payload + 4);
         internalNetworkStack.queuePacket(true, response);
+        internalNetworkStack.dataBuffer.resize(0);
         break;
       }
 
@@ -232,7 +261,7 @@ void terminalInputTask(void * params) {
             break;
 
           case TEST:
-            Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer, MAX_DATA_BUFFER_SIZE));
+            Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
             // vTaskResume(packetReceptionTaskHandle);
             break;
 
@@ -248,7 +277,7 @@ void terminalInputTask(void * params) {
 
           case STREAM:
             
-            a2dpSource.start(btTarget, get_sound_data ); 
+            a2dpSource.start(btTarget, a2dpSourceDataRetrieval ); 
 
           default:
             break;

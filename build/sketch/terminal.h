@@ -50,6 +50,13 @@ PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, termin
       format_new_terminal_entry();
     }
 
+    else if (0 == strcmp(arguments[0], "connect")){ 
+      format_terminal_for_new_entry(1);
+      Serial.print("Attempting connection...\n\r");
+      format_new_terminal_entry();
+      return CONNECT;
+    }
+
     else if (0 == strcmp(arguments[0], "ping")){ 
       format_terminal_for_new_entry(1);
       Serial.print("Starting ping\n\r");
