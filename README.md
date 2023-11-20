@@ -3,6 +3,7 @@ Arduino sketch for the Blueteeth slave device
 
 
 Libraries required:
+
 1.) [ESP32 A2DP](https://github.com/pschatzmann/ESP32-A2DP)
 
 2.) [Blueteeth Internal Network Stack](https://github.com/MrTriggerMcFragger/Blueteeth-Internal-Network-Stack)
