@@ -17,7 +17,12 @@ BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need poi
 extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 #endif
 
-// callback 
+/*  Callback for sending data to A2DP BT stream
+*   
+*   @frames - Pointer to the frame data that needs to be populated.
+*   @frameCount - The number of frames requested.
+*   @return - The number of frames populated.
+*/ 
 int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
   
   
