@@ -3,8 +3,8 @@ Arduino sketch for the Blueteeth slave device
 
 
 Libraries required:
-1.) [https://github.com/pschatzmann/ESP32-A2DP]
-2.) [https://github.com/MrTriggerMcFragger/Blueteeth-Internal-Network-Stack]
+1.) [ESP32 A2DP](https://github.com/pschatzmann/ESP32-A2DP)
+2.) [Blueteeth Internal Network Stack](https://github.com/MrTriggerMcFragger/Blueteeth-Internal-Network-Stack)
 
 Below are the pins utilized on the Teyleten Robot ESP32-Wroom Dev. board (upper pins are TX & lower pins are RX).
 
