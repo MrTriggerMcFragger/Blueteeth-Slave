@@ -1,4 +1,3 @@
-#define TIME_STREAMING
 
 #include <A2DPVolumeControl.h>
 #include <BluetoothA2DP.h>
@@ -9,8 +8,8 @@
 #include <config.h>
 #include <SoundData.h>
 
+#include "math.h"
 #include "terminal.h"
-
 #include <BlueteethInternalNetworkStack.h>
 
 #define MAX_BUFFER_SIZE 100
