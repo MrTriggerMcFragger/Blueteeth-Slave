@@ -21,26 +21,21 @@ extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
   
   
-  // delay(1); //delay for 3 milliseconds to allow 128 more bytes to come in
+  // delay(1); //delay for a milliseconds to allow more bytes to come in
 
   // Serial.printf("Buffer size is %d and the requested data is %d\n\r", internalNetworkStack.dataBuffer.size(), frameCount);
   int realDataInsertionIncrement; //How many zeroes need to be placed prior to a real sample being inserted
   int samplesInBuffer = internalNetworkStack.dataBuffer.size()/4; //2 bytes per sample, 2 samples (one for each channel) per frame
 
-  switch(samplesInBuffer){
-    
-    case 0:
+  if (samplesInBuffer == 0){
       realDataInsertionIncrement = frameCount + 1; //never insert real data
-      break;
 
-    default:
+  }
+  else {
       realDataInsertionIncrement = 1; //insert real data each step
-      int zeroFrames = frameCount - samplesInBuffer;
-      if (zeroFrames > 0){
+      if ((frameCount - samplesInBuffer) > 0){
         realDataInsertionIncrement = ceil((float)(frameCount - samplesInBuffer) / samplesInBuffer) + 1;
       }
-      break;
-    
   }
 
   for (int i = 0; i < frameCount; i++){
@@ -49,7 +44,7 @@ int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
       frames[i].channel1 = 0;
       frames[i].channel2 = 0;
     }
-    else {
+    else {  //place real data
       frames[i].channel1 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
       frames[i].channel1 += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
       frames[i].channel2 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
@@ -61,26 +56,6 @@ int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
   return frameCount;
   
 }
-
-// callback 
-// int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
-  
-
-//   int samplesAvailable = min(internalNetworkStack.dataBuffer.size()/4, (size_t) frameCount);
-
-//   // Serial.printf("There are %d samples currently available - Attempting to take out %d\n\r", internalNetworkStack.dataBuffer.size()/4, samplesAvailable);
-
-//   for (int i = 0; i < samplesAvailable; i++){
-
-//       frames[i].channel1 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-//       frames[i].channel1 += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
-//       frames[i].channel2 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-//       frames[i].channel2 += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
-//   }
-
-//   return samplesAvailable;
-  
-// }
 
 void setup() {
   
@@ -105,18 +80,18 @@ void setup() {
   1, // Priority
   &packetReceptionTaskHandle); // Task handler
 
-  // a2dpSource.set_auto_reconnect(true);
-  // a2dpSource.start("SRS-XB13", a2dpSourceData); 
-  // a2dpSource.set_volume(10);
-
 }
 
 void loop() {
-  // Serial1.print("UART working!\n\r");
-  // delay(200);
+
 }
 
-
+/*  Gets individual bytes of a 32 bit integer
+*   
+*   @integer - the integer being analyzed
+*   @byteArray - array containing 4 bytes corresponding to a 32 bit integer
+*   @return - the resulting integer
+*/  
 inline void int2Bytes(uint32_t integer, uint8_t * byteArray){
   for (int offset = 0; offset < 32; offset += 8){
     byteArray[offset/8] = integer >> offset; //assignment will truncate so only first 8 bits are assigned
@@ -267,8 +242,6 @@ void terminalInputTask(void * params) {
         input_buffer[buffer_pos] = '\0'; //Get rid of the carriage return
         Serial.print("\n\r");
         
-        // printBuffer(buffer_pos);
-
         switch ( handle_input(input_buffer, terminalParameters) ){
           case CONNECT:
 
@@ -295,7 +268,6 @@ void terminalInputTask(void * params) {
           case TEST:
             // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
             Serial.printf("Buffer Size = %d, Connection Status = %d\n\r", internalNetworkStack.dataBuffer.size(), a2dpSource.is_connected());
-            // vTaskResume(packetReceptionTaskHandle);
             break;
 
           case STREAM:
