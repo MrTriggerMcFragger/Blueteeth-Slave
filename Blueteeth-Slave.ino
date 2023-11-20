@@ -21,31 +21,42 @@ uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 // callback 
 int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
   
-  int zeroPositionIncrement = 1; //Default is all zeros
-  
-  int zeroFrames = frameCount - internalNetworkStack.dataBuffer.size()/2;
-  
-  if (zeroFrames > 0){
-    zeroPositionIncrement = ceil(internalNetworkStack.dataBuffer.size()/2/zeroFrames);
-  }
-  
-  int16_t sample;
-  
-  for (int i = 0; i < frameCount; i++){
+
+  // Serial.printf("Buffer size is %d and the requested data is %d\n\r", internalNetworkStack.dataBuffer.size(), frameCount);
+  int realDataInsertionIncrement; //How many zeroes need to be placed prior to a real sample being inserted
+  int bufferSize = internalNetworkStack.dataBuffer.size()/2;
+  switch(bufferSize){
     
-    if (sample % zeroPositionIncrement == 0 ){
-      sample = 0;
+    case 0:
+      realDataInsertionIncrement = frameCount + 1; //never insert real data
+      break;
+
+    default:
+      realDataInsertionIncrement = 1; //insert real data each step
+      int zeroFrames = frameCount - bufferSize;
+      if (zeroFrames > 0){
+        realDataInsertionIncrement = ceil((float)(frameCount - bufferSize) / bufferSize) + 1;
+      }
+      break;
+    
+  }
+
+  for (int i = 1; i < frameCount; i++){
+
+    if ((i % realDataInsertionIncrement) != 0 ){
+      frames[i].channel1 = 0;
     }
     else {
-      sample = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-      sample += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
+      frames[i].channel1 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
+      frames[i].channel1 += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
     }
-    
-    frames[i].channel1 = sample;
-    frames[i].channel2 = sample;
+
+    frames[i].channel2 = frames[i].channel1;
+  
   }
 
   return frameCount;
+  
 }
 
 void setup() {
@@ -57,7 +68,7 @@ void setup() {
   internalNetworkStack.begin();
 
   //Setup Peripherals
-  pBLEScan = bleScanSetup();
+  // pBLEScan = bleScanSetup();
 
   //State variable initialization
   terminalParameters.scanIdx = -1;
@@ -137,8 +148,12 @@ void packetReceptionTask (void * pvParams){
     switch(packetReceived.type){
       case CONNECT:
         a2dpSource.set_auto_reconnect(true);
+        Serial.print("Set autoreconnect... ");
         a2dpSource.start("SRS-XB13", a2dpSourceDataRetrieval); 
-        a2dpSource.set_volume(10);
+        Serial.print("Attempting to connect... ");
+        // a2dpSource.set_volume(10);
+        // Serial.print("Set volume...");
+        Serial.print("\n");
         break;
       case PING:
         Serial.print("Ping packet type received. Responding...\n\r"); //DEBUG STATEMENT
@@ -226,7 +241,28 @@ void terminalInputTask(void * params) {
         // printBuffer(buffer_pos);
 
         switch ( handle_input(input_buffer, terminalParameters) ){
-          
+          case CONNECT:
+
+            // auto config2 = i2sOut.defaultConfig();
+            // config2.port_no         = 0;
+            // config2.pin_bck         = BCK_PIN_OUT;
+            // config2.pin_ws          = WS_PIN_OUT;
+            // config2.pin_data        = DATA_PIN_OUT;
+            // config2.sample_rate     = 44100;             // Reconsider this, maybe get sample rate from i2sIn
+            // config2.channels        = 2;
+            // config2.bits_per_sample = 16;
+            // config2.buffer_count    = 8;
+            // config2.buffer_size     = 256;
+            // i2sOut.begin(config2); 
+
+            a2dpSource.set_auto_reconnect(true);
+            Serial.print("Set autoreconnect... ");
+            a2dpSource.start("Wireless Speaker", a2dpSourceDataRetrieval); 
+            Serial.print("Attempting to connect... ");
+            // a2dpSource.set_volume(10);
+            // Serial.print("Set volume...");
+            Serial.print("\n\r");
+            break;
           case SCAN:
             
             discoveryIdx = 0;
@@ -244,7 +280,8 @@ void terminalInputTask(void * params) {
             break;
 
           case TEST:
-            Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
+            // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
+            Serial.printf("Buffer Size = %d\n\r", internalNetworkStack.dataBuffer.size());
             // vTaskResume(packetReceptionTaskHandle);
             break;
 
