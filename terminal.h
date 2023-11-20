@@ -45,12 +45,19 @@ PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, termin
 
     if (0 == strcmp(arguments[0], "help")){ 
       format_terminal_for_new_entry(1);
-      Serial.print("Valid options are: clear and scan.\n\r");
+      Serial.print("Valid options are: clear, connect, flush, ping, scan, select, stream, and test.\n\r");
       format_new_terminal_entry();
     }
 
     else if (0 == strcmp(arguments[0], "connect")){ 
       return CONNECT;
+    }
+
+    else if (0 == strcmp(arguments[0], "flush")){ 
+      format_terminal_for_new_entry(1);
+      Serial.print("Flushing the serial data buffer...\n\r");
+      format_new_terminal_entry();
+      return FLUSH;
     }
 
     else if (0 == strcmp(arguments[0], "ping")){ 
