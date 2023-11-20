@@ -1,9 +1,7 @@
 #include "Blueteeth-Slave.h"
 #include "math.h"
 
-int scanTime = 5; //In seconds
 char input_buffer[MAX_BUFFER_SIZE];
-BLEScan* pBLEScan;
 SemaphoreHandle_t uartMutex;
 TaskHandle_t terminalInputTaskHandle;
 TaskHandle_t packetReceptionTaskHandle;
@@ -16,7 +14,9 @@ BluetoothA2DPSource a2dpSource;
 BlueteethBaseStack internalNetworkStack(10, &packetReceptionTaskHandle, &Serial2, &Serial1);
 BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need pointer for run-time polymorphism
 
+#ifdef TIME_STREAMING
 uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
+#endif
 
 // // callback 
 // int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
@@ -88,9 +88,6 @@ void setup() {
 
   //Setup Peripherals
   // pBLEScan = bleScanSetup();
-
-  //State variable initialization
-  terminalParameters.scanIdx = -1;
 
   //Create tasks
   xTaskCreate(terminalInputTask, // Task function
@@ -174,6 +171,16 @@ void packetReceptionTask (void * pvParams){
         Serial.print("\n\r");
         break;
 
+      case DISCONNECT:
+        a2dpSource.set_auto_reconnect(false);
+        Serial.print("Unsetting autoreconnect... ");
+        a2dpSource.disconnect(); 
+        Serial.print("Disconnecting... ");
+        // a2dpSource.set_volume(10);
+        // Serial.print("Set volume...");
+        Serial.print("\n\r");
+        break;
+
       case PING:
         Serial.print("Ping packet type received. Responding...\n\r"); //DEBUG STATEMENT
         response.type = PING;
@@ -189,7 +196,9 @@ void packetReceptionTask (void * pvParams){
         } //Wait till the buffer is at least 99% full
         uint32_t checkSum = byteBufferCheckSum(internalNetworkStack.dataBuffer);
         int2Bytes(checkSum, response.payload);
+        #ifdef TIME_STREAMING
         int2Bytes(streamTime, response.payload + 4);
+        #endif
         internalNetworkStack.queuePacket(true, response);
         internalNetworkStack.dataBuffer.resize(0);
         break;
@@ -239,7 +248,6 @@ void terminalInputTask(void * params) {
 
   clear_buffer(input_buffer, sizeof(input_buffer));
   int buffer_pos = 0;
-  BLEScanResults scanResults;
   const char * btTarget;
   
   while(1){
@@ -265,45 +273,29 @@ void terminalInputTask(void * params) {
 
             a2dpSource.set_auto_reconnect(true);
             Serial.print("Set autoreconnect... ");
-            a2dpSource.start("Wireless Speaker", a2dpSourceDataRetrieval); 
+            a2dpSource.start("SRS-XB13", a2dpSourceDataRetrieval); 
             Serial.print("Attempting to connect... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
             Serial.print("\n\r");
             break;
+          
+          case DISCONNECT:
 
-
-          case SCAN:
-            
-            discoveryIdx = 0;
-
-            scanResults = performBLEScan(pBLEScan, 5);
-            vTaskDelay(5 * 1000);
-            
-            Serial.print("\0337"); //save cursor
-            Serial.printf("\033[%dF", scanResults.getCount() + 1); //go up N + 1 lines
-            Serial.print("\0332K"); //clear line
-            Serial.print("*** SCAN RESULTS START ***");
-            Serial.print("\0338"); //restore cursor
-            Serial.print("*** SCAN RESULTS END   ***\n\r");
-
+            a2dpSource.set_auto_reconnect(false);
+            Serial.print("Unsetting autoreconnect... ");
+            a2dpSource.disconnect(); 
+            Serial.print("Disconnecting... ");
+            // a2dpSource.set_volume(10);
+            // Serial.print("Set volume...");
+            Serial.print("\n\r");
             break;
 
           case TEST:
             // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
-            Serial.printf("Buffer Size = %d\n\r", internalNetworkStack.dataBuffer.size());
+            Serial.printf("Buffer Size = %d, Connection Status = %d\n\r", internalNetworkStack.dataBuffer.size(), a2dpSource.is_connected());
             // vTaskResume(packetReceptionTaskHandle);
             break;
-
-          case SELECT:
-            if ((terminalParameters.scanIdx > 0) && (terminalParameters.scanIdx < discoveryIdx)){
-              btTarget = scanResults.getDevice(terminalParameters.scanIdx).getName().c_str(); 
-              Serial.printf("Target set to %s\n\r", btTarget);
-            }
-            else {
-              Serial.print("Selection failed\n\r");
-            }
-
 
           case STREAM:
             break;

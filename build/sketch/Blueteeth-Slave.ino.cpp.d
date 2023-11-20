@@ -177,33 +177,6 @@ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\Blueteeth-Slave.ino
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\ESP32-A2DP\src/BluetoothA2DPSink.h \
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/esp_ringbuf/include/freertos/ringbuf.h \
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\ESP32-A2DP\src/BluetoothA2DPSinkQueued.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEDevice.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/bt/host/bluedroid/api/include/api/esp_gap_ble_api.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/bt/host/bluedroid/api/include/api/esp_gattc_api.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/bt/host/bluedroid/api/include/api/esp_gatt_defs.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEServer.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/bt/host/bluedroid/api/include/api/esp_gatts_api.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEUUID.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11/tools/sdk/esp32/include/bt/host/bluedroid/api/include/api/esp_gatt_defs.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEAdvertising.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/RTOS.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLECharacteristic.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEDescriptor.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEValue.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEService.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLESecurity.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEAddress.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEClient.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLERemoteService.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLERemoteCharacteristic.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLERemoteDescriptor.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEAdvertisedDevice.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEScan.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEUtils.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEUtils.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEScan.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\libraries\BLE\src/BLEAdvertisedDevice.h \
- C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\bluetooth_scanning.h \
  C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\terminal.h \
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\BlueteethInternalNetworkStack/BlueteethInternalNetworkStack.h \
  C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\cores\esp32/HardwareSerial.h

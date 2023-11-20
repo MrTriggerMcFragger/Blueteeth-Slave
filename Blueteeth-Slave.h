@@ -1,3 +1,5 @@
+#define TIME_STREAMING
+
 #include <A2DPVolumeControl.h>
 #include <BluetoothA2DP.h>
 #include <BluetoothA2DPCommon.h>
@@ -6,12 +8,6 @@
 #include <BluetoothA2DPSource.h>
 #include <config.h>
 #include <SoundData.h>
-
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEScan.h>
-#include <BLEAdvertisedDevice.h>
-#include "bluetooth_scanning.h"
 
 #include "terminal.h"
 

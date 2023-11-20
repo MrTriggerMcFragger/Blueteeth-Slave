@@ -54,6 +54,10 @@ PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, termin
       return CONNECT;
     }
 
+    else if (0 == strcmp(arguments[0], "disconnect")){ 
+      return DISCONNECT;
+    }
+
     else if (0 == strcmp(arguments[0], "flush")){ 
       format_terminal_for_new_entry(1);
       Serial.print("Flushing the serial data buffer...\n\r");
@@ -66,26 +70,6 @@ PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, termin
       Serial.print("Starting ping\n\r");
       format_new_terminal_entry();
       return PING;
-    }
-
-    else if (0 == strcmp(arguments[0], "scan")){ 
-      format_terminal_for_new_entry(1);
-      Serial.print("Scan starting\n\r");
-      format_new_terminal_entry();
-      return SCAN;
-    }
-
-    else if (0 == strcmp(arguments[0], "select")){ 
-      if (num_args < 2) Serial.print("Incorrect number of arguments for select command");
-      else {
-
-        terminalParameters.scanIdx = atoi(arguments[1]);
-        format_terminal_for_new_entry(1);
-        Serial.print("Selected\n\r");
-        format_new_terminal_entry();
-        return SCAN;
-
-      }
     }
     
     else if (0 == strcmp(arguments[0], "stream")){ 
