@@ -62,6 +62,40 @@ int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
   
 }
 
+int32_t streamTest(Frame *frame, int32_t frame_count) {
+    static float m_time = 0.0;
+    float m_amplitude = 10000.0;  // -32,768 to 32,767
+    float m_deltaTime = 1.0 / 44100.0;
+    float m_phase = 0.0;
+    float pi_2 = PI * 2.0;
+    // fill the channel data
+    for (int sample = 0; sample < frame_count; ++sample) {
+        float angle = pi_2 * 130.81 * m_time + m_phase;
+        frame[sample].channel1 = m_amplitude * sin(angle);
+        frame[sample].channel2 = frame[sample].channel1;
+        m_time += m_deltaTime;
+    }
+    // to prevent watchdog
+    delay(1);
+
+    return frame_count;
+}
+
+int32_t streamPianoSamples(Frame * frames, int32_t frameCount) {
+  
+  static size_t cnt = 0;
+
+  int i = 0;
+  while (i < frameCount){
+    frames[i].channel1 = piano16bit_raw[cnt];
+    frames[i++].channel2 = piano16bit_raw[cnt];
+    cnt = ( cnt + 1 ) % sizeof(piano16bit_raw);
+  }
+
+  return frameCount;
+  
+}
+
 void setup() {
   
   //Start Serial comms
@@ -276,6 +310,15 @@ void terminalInputTask(void * params) {
             break;
 
           case STREAM:
+            a2dpSource.set_auto_reconnect(true);
+            Serial.print("Trying to play recorded samples... ");
+            a2dpSource.start("Wireless Speaker", streamTest); 
+            Serial.print("Attempting to connect... ");
+            // a2dpSource.set_volume(10);
+            // Serial.print("Set volume...");
+            Serial.print("\n\r");
+            break;
+
             break;
           case FLUSH:
             internalNetworkStack.flushDataPlaneSerialBuffer();

@@ -731,11 +731,11 @@
    "-IC:\\Users\\ztzac\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\2.0.11\\variants\\uPesy_esp32_wroom_devkit",
    "-IC:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src",
    "-IC:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\BlueteethInternalNetworkStack",
-   "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPSinkQueued.cpp",
+   "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPCommon.cpp",
    "-o",
-   "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\build\\libraries\\ESP32-A2DP\\BluetoothA2DPSinkQueued.cpp.o"
+   "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\build\\libraries\\ESP32-A2DP\\BluetoothA2DPCommon.cpp.o"
   ],
-  "file": "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPSinkQueued.cpp"
+  "file": "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPCommon.cpp"
  },
  {
   "directory": "c:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave",
@@ -1223,11 +1223,11 @@
    "-IC:\\Users\\ztzac\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\2.0.11\\variants\\uPesy_esp32_wroom_devkit",
    "-IC:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src",
    "-IC:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\BlueteethInternalNetworkStack",
-   "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPCommon.cpp",
+   "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPSinkQueued.cpp",
    "-o",
-   "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\build\\libraries\\ESP32-A2DP\\BluetoothA2DPCommon.cpp.o"
+   "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\build\\libraries\\ESP32-A2DP\\BluetoothA2DPSinkQueued.cpp.o"
   ],
-  "file": "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPCommon.cpp"
+  "file": "C:\\Users\\ztzac\\OneDrive\\Documents\\Arduino\\libraries\\ESP32-A2DP\\src\\BluetoothA2DPSinkQueued.cpp"
  },
  {
   "directory": "c:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave",

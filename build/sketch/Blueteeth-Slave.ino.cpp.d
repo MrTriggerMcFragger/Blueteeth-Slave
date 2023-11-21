@@ -179,4 +179,5 @@ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\Blueteeth-Slave.ino
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\ESP32-A2DP\src/BluetoothA2DPSinkQueued.h \
  C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\terminal.h \
  C:\Users\ztzac\OneDrive\Documents\Arduino\libraries\BlueteethInternalNetworkStack/BlueteethInternalNetworkStack.h \
- C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\cores\esp32/HardwareSerial.h
+ C:\Users\ztzac\AppData\Local\Arduino15\packages\esp32\hardware\esp32\2.0.11\cores\esp32/HardwareSerial.h \
+ C:\Users\ztzac\Documents\GitHub\Blueteeth-Slave\build\sketch\AudioSamples.h
