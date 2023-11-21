@@ -21,95 +21,144 @@ extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 
 /*  Callback for sending data to A2DP BT stream
 *   
-*   @frames - Pointer to the frame data that needs to be populated.
-*   @frameCount - The number of frames requested.
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
 *   @return - The number of frames populated.
 */ 
 #line 26 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount);
-#line 65 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-int32_t streamTest(Frame *frame, int32_t frame_count);
-#line 84 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-int32_t streamPianoSamples(Frame * frames, int32_t frameCount);
-#line 99 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len);
+#line 63 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len);
+#line 92 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len);
+#line 107 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t cycleBuffer(uint8_t * data, int32_t len);
+#line 130 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+int32_t streamPianoSamples(uint8_t * frames, int32_t frameCount);
+#line 144 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void setup();
-#line 124 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-void loop();
-#line 134 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-void int2Bytes(uint32_t integer, uint8_t * byteArray);
-#line 145 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-uint32_t bytes2Int(uint8_t * byteArray);
 #line 169 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+void loop();
+#line 179 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+void int2Bytes(uint32_t integer, uint8_t * byteArray);
+#line 190 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+uint32_t bytes2Int(uint8_t * byteArray);
+#line 214 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void packetReceptionTask(void * pvParams);
-#line 262 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 307 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void terminalInputTask(void * params);
 #line 26 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
-int32_t a2dpSourceDataRetrieval(Frame * frames, int32_t frameCount) {
+int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   
-  
-  // delay(1); //delay for a milliseconds to allow more bytes to come in
-
-  // Serial.printf("Buffer size is %d and the requested data is %d\n\r", internalNetworkStack.dataBuffer.size(), frameCount);
-  int realDataInsertionIncrement; //How many zeroes need to be placed prior to a real sample being inserted
-  int samplesInBuffer = internalNetworkStack.dataBuffer.size()/4; //2 bytes per sample, 2 samples (one for each channel) per frame
+  // Serial.printf("Buffer size is %d and the requested data is %d\n\r", internalNetworkStack.dataBuffer.size(), len);
+  int realDataInsertionIncrement; 
+  int samplesInBuffer = internalNetworkStack.dataBuffer.size(); 
 
   if (samplesInBuffer == 0){
-      realDataInsertionIncrement = frameCount + 1; //never insert real data
-
+    realDataInsertionIncrement = len + 1; //never insert real data
   }
   else {
       realDataInsertionIncrement = 1; //insert real data each step
-      if ((frameCount - samplesInBuffer) > 0){
-        realDataInsertionIncrement = ceil((float)(frameCount - samplesInBuffer) / samplesInBuffer) + 1;
+      if ((len - samplesInBuffer) > 0){
+        realDataInsertionIncrement = ceil((float)(len - samplesInBuffer) / samplesInBuffer) + 1;
       }
   }
 
-  for (int i = 0; i < frameCount; i++){
+  for (int i = 0; i < len; i++){
 
     if ( ( (i + 1) % realDataInsertionIncrement ) != 0 ){ //stuff zeroes
-      frames[i].channel1 = 0;
-      frames[i].channel2 = 0;
+      data[i] = 0;
     }
     else {  //place real data
-      frames[i].channel1 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-      frames[i].channel1 += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
-      frames[i].channel2 = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-      frames[i].channel2 += internalNetworkStack.dataBuffer.front() << 8; internalNetworkStack.dataBuffer.pop_front();
+      data[i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
     }
   
   }
 
-  return frameCount;
+  return len;
   
 }
 
-int32_t streamTest(Frame *frame, int32_t frame_count) {
-    static float m_time = 0.0;
-    float m_amplitude = 10000.0;  // -32,768 to 32,767
-    float m_deltaTime = 1.0 / 44100.0;
-    float m_phase = 0.0;
-    float pi_2 = PI * 2.0;
-    // fill the channel data
-    for (int sample = 0; sample < frame_count; ++sample) {
-        float angle = pi_2 * 130.81 * m_time + m_phase;
-        frame[sample].channel1 = m_amplitude * sin(angle);
-        frame[sample].channel2 = frame[sample].channel1;
-        m_time += m_deltaTime;
-    }
-    // to prevent watchdog
-    delay(1);
+/*  Callback for sending data to A2DP BT stream
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
+  
+  int bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
+  int zeroEntries = (len - bytesInBuffer);
+  if (zeroEntries > 0){
+    zeroEntries += (zeroEntries % 2); //Make sure there are an even number as 2 bytes per sample
+    zeroEntries += (zeroEntries % 4); //Make sure there are audio samples for each channel
+    bytesInBuffer = len - zeroEntries; //update bytes in buffer as this is how many bytes will be streamed
+    for (int i = 0; i < zeroEntries; i++) data[i] = 0;
+  }
+  else {
+    zeroEntries = 0;
+    bytesInBuffer = min(bytesInBuffer, len);
+  }
 
-    return frame_count;
+  for (int i = 0; i < bytesInBuffer; i++){
+    data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
+  }  
+
+  return len;
+  
 }
 
-int32_t streamPianoSamples(Frame * frames, int32_t frameCount) {
+/*  Callback for sending data to A2DP BT stream
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
+  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
+  end -= end % 2; //make sure an even number of audio samples are sent at any given time
+  for (int i = 0; i < end; i++){
+    internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
+  }  
+  return end;
+}
+
+/*  Callback for cycling the buffer
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+int32_t cycleBuffer(uint8_t * data, int32_t len) {
+
+  static int cnt = 0;
+
+  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len); 
+
+  for (int i = 0; i < end; i++){
+    data[i] = internalNetworkStack.dataBuffer.at(cnt); //internalNetworkStack.dataBuffer.pop_front();
+    cnt = ( cnt + 1 ) % internalNetworkStack.dataBuffer.size();
+  }
+
+  return end;
+  
+}
+
+
+
+/*  Testfunction to ensure data stream works (plays pre-recorded data)
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+int32_t streamPianoSamples(uint8_t * frames, int32_t frameCount) {
   
   static size_t cnt = 0;
 
   int i = 0;
   while (i < frameCount){
-    frames[i].channel1 = piano16bit_raw[cnt];
-    frames[i++].channel2 = piano16bit_raw[cnt];
+    frames[i++] = piano16bit_raw[cnt];
     cnt = ( cnt + 1 ) % sizeof(piano16bit_raw);
   }
 
@@ -200,7 +249,7 @@ void packetReceptionTask (void * pvParams){
       case CONNECT:
         a2dpSource.set_auto_reconnect(true);
         Serial.print("Set autoreconnect... ");
-        a2dpSource.start( (char *) packetReceived.payload, a2dpSourceDataRetrieval); 
+        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrievalAlt); 
         Serial.print("Attempting to connect... ");
         // a2dpSource.set_volume(10);
         // Serial.print("Set volume...");
@@ -307,7 +356,7 @@ void terminalInputTask(void * params) {
 
             a2dpSource.set_auto_reconnect(true);
             Serial.print("Set autoreconnect... ");
-            a2dpSource.start("SRS-XB13", a2dpSourceDataRetrieval); 
+            a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalNoZeroes); 
             Serial.print("Attempting to connect... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
@@ -327,13 +376,17 @@ void terminalInputTask(void * params) {
 
           case TEST:
             // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
-            Serial.printf("Buffer Size = %d, Connection Status = %d\n\r", internalNetworkStack.dataBuffer.size(), a2dpSource.is_connected());
+            // Serial.printf("Buffer Size = %d, Connection Status = %d\n\r", internalNetworkStack.dataBuffer.size(), a2dpSource.is_connected());
+            a2dpSource.set_auto_reconnect(true);
+            Serial.print("Playing samples with zeroes... ");
+            a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalAlt); 
+            Serial.print("Attempting to connect... ");
             break;
 
           case STREAM:
             a2dpSource.set_auto_reconnect(true);
             Serial.print("Trying to play recorded samples... ");
-            a2dpSource.start("Wireless Speaker", streamTest); 
+            a2dpSource.start_raw("Wireless Speaker", streamPianoSamples); 
             Serial.print("Attempting to connect... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
