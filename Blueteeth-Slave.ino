@@ -281,18 +281,19 @@ void packetReceptionTask (void * pvParams){
         // while(internalNetworkStack.dataBuffer.size() < 40000){ 
         //   // Serial.print("Waiting for data...\n\r");
         // } //Wait till the buffer is at least 99% full
+        Serial.print("Attempting to take checksum\n\r");
         uint32_t checkSum = byteBufferCheckSum(internalNetworkStack.dataBuffer);
         int2Bytes(checkSum, response.payload);
         #ifdef TIME_STREAMING
         int2Bytes(streamTime, response.payload + 4);
         #endif
         internalNetworkStack.queuePacket(true, response);
-        // internalNetworkStack.dataBuffer.resize(0); //Resizing won't reset the data at the memory locations reserved previously
-        int bufferSize = internalNetworkStack.dataBuffer.size();
-        for (int i = 0; i < bufferSize; i++){
-          internalNetworkStack.dataBuffer.back() = 0;
-          internalNetworkStack.dataBuffer.pop_back();
-        }
+        internalNetworkStack.dataBuffer.resize(0); //Resizing won't reset the data at the memory locations reserved previously
+        // int bufferSize = internalNetworkStack.dataBuffer.size();
+        // for (int i = 0; i < bufferSize; i++){
+        //   internalNetworkStack.dataBuffer.back() = 0;
+        //   internalNetworkStack.dataBuffer.pop_back();
+        // }
         break;
       }
 
