@@ -11,7 +11,6 @@
 
 #include "math.h"
 #include "terminal.h"
-#include "AudioSamples.h"
 #include <BlueteethInternalNetworkStack.h>
 
 #define MAX_BUFFER_SIZE 100
