@@ -105,10 +105,13 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
 */ 
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
 
-  // Serial.printf("%d bytes requested", len);
 
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
-  end -= end % 2; //make sure an even number of audio samples are sent at any given time
+  
+  if ((end % 2) != 0){
+    Serial.print("How?!?\n\r");
+  }
+
   for (int i = 0; i < end; i++){
     internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
@@ -384,7 +387,7 @@ void terminalInputTask(void * params) {
 
           case TEST:
             // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
-            Serial.printf("Buffer Size = %d, Connection Status = %d, CPU frequency = %d MHz\n\r", internalNetworkStack.dataBuffer.size(), a2dpSource.is_connected(), getCpuFrequencyMhz());
+            Serial.printf("Buffer Size = %d, Serial Data Available = %d, Connection Status = %d, CPU frequency = %d MHz\n\r", internalNetworkStack.dataBuffer.size(), internalNetworkStack.getDataPlaneBytesAvailable(), a2dpSource.is_connected(), getCpuFrequencyMhz());
             // a2dpSource.set_auto_reconnect(true);
             // Serial.print("Playing samples with zeroes... ");
             // a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalAlt); 

@@ -33,19 +33,19 @@ int32_t a2dpDirectTransfer(uint8_t * data, int32_t len);
 int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len);
 #line 106 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len);
-#line 124 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 127 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t cycleBuffer(uint8_t * data, int32_t len);
-#line 161 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 164 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void setup();
-#line 186 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 189 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void loop();
-#line 196 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 199 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void int2Bytes(uint32_t integer, uint8_t * byteArray);
-#line 207 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 210 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 uint32_t bytes2Int(uint8_t * byteArray);
-#line 231 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 234 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void packetReceptionTask(void * pvParams);
-#line 340 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
+#line 343 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 void terminalInputTask(void * params);
 #line 26 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\Blueteeth-Slave.ino"
 int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
@@ -130,10 +130,13 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
 */ 
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
 
-  // Serial.printf("%d bytes requested", len);
 
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
-  end -= end % 2; //make sure an even number of audio samples are sent at any given time
+  
+  if ((end % 2) != 0){
+    Serial.print("How?!?\n\r");
+  }
+
   for (int i = 0; i < end; i++){
     internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
@@ -409,7 +412,7 @@ void terminalInputTask(void * params) {
 
           case TEST:
             // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
-            Serial.printf("Buffer Size = %d, Connection Status = %d, CPU frequency = %d MHz\n\r", internalNetworkStack.dataBuffer.size(), a2dpSource.is_connected(), getCpuFrequencyMhz());
+            Serial.printf("Buffer Size = %d, Serial Data Available = %d, Connection Status = %d, CPU frequency = %d MHz\n\r", internalNetworkStack.dataBuffer.size(), internalNetworkStack.getDataPlaneBytesAvailable(), a2dpSource.is_connected(), getCpuFrequencyMhz());
             // a2dpSource.set_auto_reconnect(true);
             // Serial.print("Playing samples with zeroes... ");
             // a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalAlt); 
