@@ -1,8 +1,0 @@
-#line 1 "C:\\Users\\ztzac\\Documents\\GitHub\\Blueteeth-Slave\\.vscode\\arduino.json"
-{
-    "sketch": "Blueteeth-Slave.ino",
-    "port": "COM25",
-    "output": "build",
-    "board": "esp32:esp32:uPesy_wroom",
-    "configuration": "PartitionScheme=default,CPUFreq=240,UploadSpeed=921600,FlashMode=qio,FlashFreq=80,DebugLevel=none,EraseFlash=none"
-}
