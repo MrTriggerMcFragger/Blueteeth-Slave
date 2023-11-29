@@ -4,6 +4,8 @@ char input_buffer[MAX_BUFFER_SIZE];
 SemaphoreHandle_t uartMutex;
 TaskHandle_t terminalInputTaskHandle;
 TaskHandle_t packetReceptionTaskHandle;
+TaskHandle_t dataStreamMonitorTaskHandle;
+
 
 terminalParameters_t terminalParameters;
 int discoveryIdx;
@@ -184,6 +186,13 @@ void setup() {
   1, // Priority
   &packetReceptionTaskHandle); // Task handler
 
+  xTaskCreate(dataStreamMonitorTask, // Task function
+  "DATA STREAM BUFFER MONITOR", // Task name
+  4096, // Stack depth 
+  NULL, 
+  2, // Priority
+  &dataStreamMonitorTaskHandle); // Task handler
+
 }
 
 void loop() {
@@ -307,6 +316,16 @@ void packetReceptionTask (void * pvParams){
 
   }
 } 
+#define DATA_STREAM_TIMEOUT (1000)
+void dataStreamMonitorTask (void * pvParams){
+  while(1){
+    vTaskDelay(500);
+    if ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis()){
+      internalNetworkStack.flushDataPlaneSerialBuffer();
+      internalNetworkStack.dataBuffer.resize(0);
+    }
+  }
+}
 
 /*  Prints all characters in a character buffer
 *
