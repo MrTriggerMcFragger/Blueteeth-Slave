@@ -57,10 +57,12 @@ PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, termin
       return DISCONNECT;
     }
 
+    else if (0 == strcmp(arguments[0], "drop")){ 
+      return DROP;
+    }
+
+
     else if (0 == strcmp(arguments[0], "flush")){ 
-      format_terminal_for_new_entry(1);
-      Serial.print("Flushing the serial data buffer...\n\r");
-      format_new_terminal_entry();
       return FLUSH;
     }
 

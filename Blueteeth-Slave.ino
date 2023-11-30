@@ -20,7 +20,6 @@ extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 #endif
 
 
-
 const uint8_t audioDelay[512] = { 0 };
 
 /*  Callback for sending data to A2DP BT stream (BEST SO FAR)
@@ -35,7 +34,7 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
   static int bytesInserted;
   static const std::string accessIdentifier = "A2DP";
 
-  if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
+  if (internalNetworkStack.dataBuffer.size() == 0){
     memcpy(data, audioDelay, 512); 
     return 512;
   }
@@ -54,10 +53,6 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
   for (int i = 0; i < bytesInserted; ++i){
     data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
-
-  if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
-    Serial.print("Someone else accessed the buffer when I had access...\n\r");
-  }
 
   //Have to do print statements while interrupts are enabled.
   if ((bytesInBuffer % 4) != 0){
@@ -78,33 +73,43 @@ int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
   
   static const std::string accessIdentifier = "A2DP";
 
-  if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
-    memcpy(data, audioDelay, 512);
-    // Serial.printf("[A2DP] Delaying...\n\r");
-    return 512;
+  //If the data buffer size is very large or we're running out of data, yield. 
+  if ((internalNetworkStack.dataBuffer.size() == 0) || ((internalNetworkStack.dataBuffer.size() < internalNetworkStack.getDataPlaneBytesAvailable()))){
+    //Yield if there is data to be read.
+    // Serial.print("Attempging to yield\n\r");
+    // vPortYield();
+    return 0;
   }
   
+  if (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
+    return 0;
+  }
+
   
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
 
-  // Serial.printf("[A2DP] Trying to send %d bytes...\n\r", end);
+  // Serial.printf("Sending %d bytes of A2DP data (current buffer size is %d)... ", end, internalNetworkStack.dataBuffer.size());
 
   for (int i = 0; i < end; i++){
     internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
 
-  if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
-    Serial.print("[A2DP] Another task accessed the data buffer when it wasn't supposed to...\n\r");
-  }
-
   if (((end % 4) != 0) || ((internalNetworkStack.dataBuffer.size() % 4) != 0)){
     Serial.printf("A2DP Noticed Buffer Gone Bad (before (%d) vs after(%d)\n\r", end, internalNetworkStack.dataBuffer.size());
   }
 
+  // Serial.printf("Done sending (current buffer size is %d)\n\r", internalNetworkStack.dataBuffer.size());
+
+  xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+
+  internalNetworkStack.recordDataBufferAccessTime();
+
   return end;
 }
 
-
+int32_t a2dpNoDataSent(uint8_t * data, int32_t length){
+  return 0;
+}
 
 void setup() {
   
@@ -229,56 +234,73 @@ void packetReceptionTask (void * pvParams){
 
       case STREAM: {
         response.type = STREAM_RESULTS;
-        // while(internalNetworkStack.dataBuffer.size() < 40000){ 
-        //   // Serial.print("Waiting for data...\n\r");
-        // } //Wait till the buffer is at least 99% full
-        Serial.print("Attempting to take checksum\n\r");
+        uint32_t startTime = millis();
+        while(internalNetworkStack.dataBuffer.size() <= DATA_STREAM_TEST_SIZE && ((millis() - startTime) < 1000)){ 
+          // Serial.print("Waiting for data...\n\r");
+        } //Wait till the buffer is at least 95% full
+        #ifdef TIME_STREAMING
+        if ((millis() - startTime) > 1000){
+          streamTime =  millis() - streamTime;
+          Serial.print("Data stream did not finish... ");
+        }
+        #endif
+        Serial.print("Attempting to take checksum...");
         uint32_t checkSum = byteBufferCheckSum(internalNetworkStack.dataBuffer);
+        Serial.printf(" Result is %d ", checkSum);
         int2Bytes(checkSum, response.payload);
         #ifdef TIME_STREAMING
         int2Bytes(streamTime, response.payload + 4);
+        Serial.printf("stream time is %d", streamTime);
         #endif
+        Serial.println();
         internalNetworkStack.queuePacket(true, response);
         internalNetworkStack.dataBuffer.resize(0); //Resizing won't reset the data at the memory locations reserved previously
-        // int bufferSize = internalNetworkStack.dataBuffer.size();
-        // for (int i = 0; i < bufferSize; i++){
-        //   internalNetworkStack.dataBuffer.back() = 0;
-        //   internalNetworkStack.dataBuffer.pop_back();
-        // }
         break;
       }
 
       default:
-        Serial.print("Unknown packet type received.\n\r"); //DEBUG STATEMENT
+        // Serial.print("Unknown packet type received.\n\r"); //DEBUG STATEMENT
         break;
     }
 
   }
 } 
-#define DATA_STREAM_TIMEOUT (10000)
+#define DATA_STREAM_TIMEOUT (1500)
 void dataStreamMonitorTask (void * pvParams){
   static const std::string accessIdentifier = "MONITOR";
+  static uint32_t currentTime; //for legibility
   while(1){
     vTaskDelay(500);
+    currentTime = millis(); 
     /*This is a VERY long list of conditionals to execute, but it boils down to:
     * 1.) Is there a connection (the buffer size doesn't matter otherwise)?
     * 2.) Is the buffer available to be written to?
     * 3.) Has the timeout duration occurred (i.e. has it been DATA_STREAM_TIMEOUT milliseconds since the last time data was received)?
     * 4.) Does either the data plane serial buffer or data buffer have any data to clear? 
     */
-    if ((a2dpSource.is_connected()) && (internalNetworkStack.checkForActiveDataBufferWrite() == false) && ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis()) && ((internalNetworkStack.dataBuffer.size() > 0) || (internalNetworkStack.getDataPlaneBytesAvailable()))){
+    if ((a2dpSource.is_connected()) && (currentTime > (internalNetworkStack.getLastDataBufferAccessTime() + DATA_STREAM_TIMEOUT)) && ((internalNetworkStack.dataBuffer.size() > 0) || (internalNetworkStack.getDataPlaneBytesAvailable()))){
       // Serial.printf("Timed out.... Clearing data plane (Serial = %d, Buffer = %d)\n\r", internalNetworkStack.getDataPlaneBytesAvailable(), internalNetworkStack.dataBuffer.size());
-      if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
+      // Serial.println("Monitor is trying to take the mutex...");
+      if (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
          continue; //check again after flushing the serial buffer
       }
+
+      Serial.println("Monitor took the mutex...");
+
+      currentTime = millis(); 
+      if (currentTime < (internalNetworkStack.getLastDataBufferAccessTime() + DATA_STREAM_TIMEOUT)) //check again as this may have changed while trying to take the mutex
+      {
+        xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+        continue;
+      }
+
       internalNetworkStack.flushDataPlaneSerialBuffer();
       internalNetworkStack.dataBuffer.resize(0);
-      if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
-        Serial.print("[Monitor] Another task accessed the data buffer when it wasn't supposed to...\n\r");
-      }
+      
+      xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+      
       Serial.println("Timed out...\n\r");
-      // Serial.printf("Post clear out (Serial = %d, Buffer = %d)\n\r", internalNetworkStack.getDataPlaneBytesAvailable(), internalNetworkStack.dataBuffer.size());
-
+      
       internalNetworkStack.dataBufferTimeoutReset();
     }
   }
@@ -372,14 +394,19 @@ void terminalInputTask(void * params) {
             break;
 
           case STREAM:
+            Serial.println("Starting a bluetooth connection with no audio feeding to test data stream rate");
+            a2dpSource.set_auto_reconnect(true);
+            Serial.println("Set autoreconnect... ");
+            a2dpSource.start_raw("Wireless Speaker", a2dpNoDataSent); 
             break;
 
           case DROP:
-            Serial.print("Dropping one packet...\n\r");
-            internalNetworkStack.dataBuffer.pop_front(); //get rid of one byte
+            Serial.print("Dropping data buffer contents...\n\r");
+            internalNetworkStack.dataBuffer.resize(0); //get rid of one byte
             break;
 
           case FLUSH:
+            Serial.print("Flushing the data plane serial buffer...\n\r");
             internalNetworkStack.flushDataPlaneSerialBuffer();
             break;
 
