@@ -19,57 +19,7 @@ BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need poi
 extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 #endif
 
-/*  Callback for sending data to A2DP BT stream
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
-  
-  // Serial.printf("Buffer size is %d and the requested data is %d\n\r", internalNetworkStack.dataBuffer.size(), len);
-  int realDataInsertionIncrement; 
-  int samplesInBuffer = internalNetworkStack.dataBuffer.size(); 
 
-  if (samplesInBuffer == 0){
-    realDataInsertionIncrement = len + 1; //never insert real data
-  }
-  else {
-      realDataInsertionIncrement = 1; //insert real data each step
-      if ((len - samplesInBuffer) > 0){
-        realDataInsertionIncrement = ceil((float)(len - samplesInBuffer) / samplesInBuffer) + 1;
-      }
-  }
-
-  for (int i = 0; i < len; i++){
-
-    if ( ( (i + 1) % realDataInsertionIncrement ) != 0 ){ //stuff zeroes
-      data[i] = 0;
-    }
-    else {  //place real data
-      data[i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-    }
-  
-  }
-
-  interrupts();
-  return len;
-  
-}
-
-/*  Callback for sending data to A2DP BT stream directly from the serial buffer
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t a2dpDirectTransfer(uint8_t * data, int32_t len) {
-  
-  int32_t dataAvailable = min(len, internalNetworkStack.dataPlane->available()); 
-  internalNetworkStack.dataPlane -> readBytes(data, dataAvailable);
-  return dataAvailable;
-  
-}
 
 const uint8_t audioDelay[512] = { 0 };
 
@@ -83,17 +33,12 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
   static int bytesInBuffer;
   static int zeroEntries;
   static int bytesInserted;
+  static const std::string accessIdentifier = "A2DP";
 
-  memcpy(data, audioDelay, 512); //insert zeros before stopping interrupts
-
-  noInterrupts();
-
-  if (internalNetworkStack.checkForActiveDataBufferWrite()){
-    interrupts(); //re-enable interrupts before returning
+  if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
+    memcpy(data, audioDelay, 512); 
     return 512;
   }
-
-  internalNetworkStack.declareActiveDataBufferReadWrite();
 
   bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
   zeroEntries = (len - bytesInBuffer);
@@ -110,9 +55,9 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
     data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
 
-  interrupts();
-
-  internalNetworkStack.declareDataBufferSafeToAccess();
+  if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
+    Serial.print("Someone else accessed the buffer when I had access...\n\r");
+  }
 
   //Have to do print statements while interrupts are enabled.
   if ((bytesInBuffer % 4) != 0){
@@ -130,27 +75,31 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
 // *   @return - The number of frames populated.
 // */ 
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
-
-  memcpy(data, audioDelay, 512); //insert zeros before stopping interrupts
-
-  noInterrupts();
   
-  if (internalNetworkStack.checkForActiveDataBufferWrite()){
-    interrupts();
+  static const std::string accessIdentifier = "A2DP";
+
+  if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
+    memcpy(data, audioDelay, 512);
+    Serial.printf("[A2DP] Delaying...\n\r");
     return 512;
   }
 
-  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
+  Serial.printf("[A2DP] Trying to send data...\n\r");
   
-  if ((end % 2) != 0){
-    Serial.print("How?!?\n\r");
-  }
+  
+  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
 
   for (int i = 0; i < end; i++){
     internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
 
-  interrupts();
+  if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
+    Serial.print("[A2DP] Another task accessed the data buffer when it wasn't supposed to...\n\r");
+  }
+
+  if (((end % 4) != 0) || ((internalNetworkStack.dataBuffer.size() % 4) != 0)){
+    Serial.printf("A2DP Noticed Buffer Gone Bad (before (%d) vs after(%d)\n\r", end, internalNetworkStack.dataBuffer.size());
+  }
 
   return end;
 }
@@ -248,11 +197,7 @@ void packetReceptionTask (void * pvParams){
       case CONNECT:
         a2dpSource.set_auto_reconnect(true);
         Serial.print("Set autoreconnect... ");
-        #ifdef DIRECT_TRANSFER
-        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpDirectTransfer); 
-        #else
-        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrievalAlt); 
-        #endif
+        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrievalNoZeroes); 
         Serial.print("Attempting to connect... ");
         // a2dpSource.set_volume(10);
         // Serial.print("Set volume...");
@@ -310,17 +255,22 @@ void packetReceptionTask (void * pvParams){
 
   }
 } 
-#define DATA_STREAM_TIMEOUT (1000)
+#define DATA_STREAM_TIMEOUT (2000)
 void dataStreamMonitorTask (void * pvParams){
+  static const std::string accessIdentifier = "MONITOR";
   while(1){
     vTaskDelay(500);
-    if ((internalNetworkStack.checkForActiveDataBufferWrite() == false), ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis())){
-      internalNetworkStack.declareActiveDataBufferReadWrite();
+    if ((a2dpSource.is_connected()) && (internalNetworkStack.checkForActiveDataBufferWrite() == false) && ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis())){
+      // Serial.printf("Timed out.... Clearing data plane (Serial = %d, Buffer = %d)\n\r", internalNetworkStack.getDataPlaneBytesAvailable(), internalNetworkStack.dataBuffer.size());
+      if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
+         continue; //check again after flushing the serial buffer
+      }
       internalNetworkStack.flushDataPlaneSerialBuffer();
-      noInterrupts();
       internalNetworkStack.dataBuffer.resize(0);
-      interrupts();
-      internalNetworkStack.declareDataBufferSafeToAccess();
+      if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
+        Serial.print("[Monitor] Another task accessed the data buffer when it wasn't supposed to...\n\r");
+      }
+      // Serial.printf("Post clear out (Serial = %d, Buffer = %d)\n\r", internalNetworkStack.getDataPlaneBytesAvailable(), internalNetworkStack.dataBuffer.size());
     }
   }
 }
@@ -362,6 +312,7 @@ void terminalInputTask(void * params) {
   clear_buffer(input_buffer, sizeof(input_buffer));
   int buffer_pos = 0;
   const char * btTarget;
+  static const std::string accessIdentifier = "TEST";
   
   while(1){
 
@@ -404,7 +355,7 @@ void terminalInputTask(void * params) {
 
           case TEST:
             // Serial.printf("Address = %d, Checksum = %lu\n\r", internalNetworkStack.getAddress(), byteBufferCheckSum(internalNetworkStack.dataBuffer));
-            Serial.printf("Buffer Size = %d, Serial Data Available = %d, Connection Status = %d, CPU frequency = %d MHz\n\r", internalNetworkStack.dataBuffer.size(), internalNetworkStack.getDataPlaneBytesAvailable(), a2dpSource.is_connected(), getCpuFrequencyMhz());
+            Serial.printf("Buffer Size = %d, Serial Data Available = %d, Connection Status = %d, CPU frequency = %d MHz, Data Buffer Accessor = %s\n\r", internalNetworkStack.dataBuffer.size(), internalNetworkStack.getDataPlaneBytesAvailable(), a2dpSource.is_connected(), getCpuFrequencyMhz(), internalNetworkStack.getOriginalAccessor().c_str());
             // a2dpSource.set_auto_reconnect(true);
             // Serial.print("Playing samples with zeroes... ");
             // a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalAlt); 
@@ -412,18 +363,13 @@ void terminalInputTask(void * params) {
             break;
 
           case STREAM:
-            a2dpSource.set_auto_reconnect(true);
-            Serial.print("Direct stream starting....");
-            a2dpSource.start_raw("Wireless Speaker", a2dpDirectTransfer); 
-            Serial.print("Attempting to connect... ");
-            // a2dpSource.set_volume(10);
-            // Serial.print("Set volume...");
-            Serial.print("\n\r");
             break;
+
           case DROP:
             Serial.print("Dropping one packet...\n\r");
             internalNetworkStack.dataBuffer.pop_front(); //get rid of one byte
             break;
+
           case FLUSH:
             internalNetworkStack.flushDataPlaneSerialBuffer();
             break;
