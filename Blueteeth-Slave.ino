@@ -52,6 +52,7 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   
   }
 
+  interrupts();
   return len;
   
 }
@@ -70,6 +71,8 @@ int32_t a2dpDirectTransfer(uint8_t * data, int32_t len) {
   
 }
 
+const uint8_t audioDelay[512] = { 0 };
+
 /*  Callback for sending data to A2DP BT stream (BEST SO FAR)
 *   
 *   @data - Pointer to the data that needs to be populated.
@@ -77,36 +80,65 @@ int32_t a2dpDirectTransfer(uint8_t * data, int32_t len) {
 *   @return - The number of frames populated.
 */ 
 int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
-  
-  int bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
-  int zeroEntries = (len - bytesInBuffer);
+  static int bytesInBuffer;
+  static int zeroEntries;
+  static int bytesInserted;
+
+  memcpy(data, audioDelay, 512); //insert zeros before stopping interrupts
+
+  noInterrupts();
+
+  if (internalNetworkStack.checkForActiveDataBufferWrite()){
+    interrupts(); //re-enable interrupts before returning
+    return 512;
+  }
+
+  internalNetworkStack.declareActiveDataBufferReadWrite();
+
+  bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
+  zeroEntries = (len - bytesInBuffer);
   if (zeroEntries > 0){
-    zeroEntries += (zeroEntries % 2); //Make sure there are an even number as 2 bytes per sample
     zeroEntries += (zeroEntries % 4); //Make sure there are audio samples for each channel
-    bytesInBuffer = len - zeroEntries; //update bytes in buffer as this is how many bytes will be streamed
-    for (int i = 0; i < zeroEntries; i++) data[i] = 0;
+    bytesInserted = len - zeroEntries; //update bytes in buffer as this is how many bytes will be streamed
   }
   else {
     zeroEntries = 0;
-    bytesInBuffer = min(bytesInBuffer, len);
+    bytesInserted = min(bytesInBuffer, len);
   }
 
-  for (int i = 0; i < bytesInBuffer; i++){
+  for (int i = 0; i < bytesInserted; ++i){
     data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
 
+  interrupts();
+
+  internalNetworkStack.declareDataBufferSafeToAccess();
+
+  //Have to do print statements while interrupts are enabled.
+  if ((bytesInBuffer % 4) != 0){
+    Serial.printf("Something is very wrong with the stream. The buffer size is %d\n\r", internalNetworkStack.dataBuffer.size());
+  }
+  
   return len;
   
 }
 
-/*  Callback for sending data to A2DP BT stream
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
+// /*  Callback for sending data to A2DP BT stream
+// *   
+// *   @data - Pointer to the data that needs to be populated.
+// *   @len - The number of bytes requested.
+// *   @return - The number of frames populated.
+// */ 
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
 
+  memcpy(data, audioDelay, 512); //insert zeros before stopping interrupts
+
+  noInterrupts();
+  
+  if (internalNetworkStack.checkForActiveDataBufferWrite()){
+    interrupts();
+    return 512;
+  }
 
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
   
@@ -117,51 +149,13 @@ int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
   for (int i = 0; i < end; i++){
     internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
+
+  interrupts();
+
   return end;
 }
 
-/*  Callback for cycling the buffer
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t cycleBuffer(uint8_t * data, int32_t len) {
 
-  static int cnt = 0;
-
-  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len); 
-
-  for (int i = 0; i < end; i++){
-    data[i] = internalNetworkStack.dataBuffer.at(cnt); //internalNetworkStack.dataBuffer.pop_front();
-    cnt = ( cnt + 1 ) % internalNetworkStack.dataBuffer.size();
-  }
-
-  return end;
-  
-}
-
-
-
-/*  Testfunction to ensure data stream works (plays pre-recorded data)
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-// int32_t streamPianoSamples(uint8_t * frames, int32_t frameCount) {
-  
-//   static size_t cnt = 0;
-
-//   int i = 0;
-//   while (i < frameCount){
-//     frames[i++] = piano16bit_raw[cnt];
-//     cnt = ( cnt + 1 ) % sizeof(piano16bit_raw);
-//   }
-
-//   return frameCount;
-  
-// }
 
 void setup() {
   
@@ -183,14 +177,14 @@ void setup() {
   "PACKET RECEPTION HANDLER", // Task name
   4096, // Stack size 
   NULL, 
-  1, // Priority
+  2, // Priority
   &packetReceptionTaskHandle); // Task handler
 
   xTaskCreate(dataStreamMonitorTask, // Task function
   "DATA STREAM BUFFER MONITOR", // Task name
   4096, // Stack depth 
   NULL, 
-  2, // Priority
+  3, // Priority
   &dataStreamMonitorTaskHandle); // Task handler
 
 }
@@ -320,9 +314,13 @@ void packetReceptionTask (void * pvParams){
 void dataStreamMonitorTask (void * pvParams){
   while(1){
     vTaskDelay(500);
-    if ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis()){
+    if ((internalNetworkStack.checkForActiveDataBufferWrite() == false), ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis())){
+      internalNetworkStack.declareActiveDataBufferReadWrite();
       internalNetworkStack.flushDataPlaneSerialBuffer();
+      noInterrupts();
       internalNetworkStack.dataBuffer.resize(0);
+      interrupts();
+      internalNetworkStack.declareDataBufferSafeToAccess();
     }
   }
 }
