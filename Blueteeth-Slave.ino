@@ -80,14 +80,14 @@ int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
 
   if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
     memcpy(data, audioDelay, 512);
-    Serial.printf("[A2DP] Delaying...\n\r");
+    // Serial.printf("[A2DP] Delaying...\n\r");
     return 512;
   }
-
-  Serial.printf("[A2DP] Trying to send data...\n\r");
   
   
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
+
+  // Serial.printf("[A2DP] Trying to send %d bytes...\n\r", end);
 
   for (int i = 0; i < end; i++){
     internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
@@ -255,12 +255,18 @@ void packetReceptionTask (void * pvParams){
 
   }
 } 
-#define DATA_STREAM_TIMEOUT (2000)
+#define DATA_STREAM_TIMEOUT (10000)
 void dataStreamMonitorTask (void * pvParams){
   static const std::string accessIdentifier = "MONITOR";
   while(1){
     vTaskDelay(500);
-    if ((a2dpSource.is_connected()) && (internalNetworkStack.checkForActiveDataBufferWrite() == false) && ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis())){
+    /*This is a VERY long list of conditionals to execute, but it boils down to:
+    * 1.) Is there a connection (the buffer size doesn't matter otherwise)?
+    * 2.) Is the buffer available to be written to?
+    * 3.) Has the timeout duration occurred (i.e. has it been DATA_STREAM_TIMEOUT milliseconds since the last time data was received)?
+    * 4.) Does either the data plane serial buffer or data buffer have any data to clear? 
+    */
+    if ((a2dpSource.is_connected()) && (internalNetworkStack.checkForActiveDataBufferWrite() == false) && ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis()) && ((internalNetworkStack.dataBuffer.size() > 0) || (internalNetworkStack.getDataPlaneBytesAvailable()))){
       // Serial.printf("Timed out.... Clearing data plane (Serial = %d, Buffer = %d)\n\r", internalNetworkStack.getDataPlaneBytesAvailable(), internalNetworkStack.dataBuffer.size());
       if (internalNetworkStack.declareActiveDataBufferReadWrite(accessIdentifier) == false){
          continue; //check again after flushing the serial buffer
@@ -270,7 +276,10 @@ void dataStreamMonitorTask (void * pvParams){
       if (internalNetworkStack.declareDataBufferSafeToAccess(accessIdentifier) == false){
         Serial.print("[Monitor] Another task accessed the data buffer when it wasn't supposed to...\n\r");
       }
+      Serial.println("Timed out...\n\r");
       // Serial.printf("Post clear out (Serial = %d, Buffer = %d)\n\r", internalNetworkStack.getDataPlaneBytesAvailable(), internalNetworkStack.dataBuffer.size());
+
+      internalNetworkStack.dataBufferTimeoutReset();
     }
   }
 }
