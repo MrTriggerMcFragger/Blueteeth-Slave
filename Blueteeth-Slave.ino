@@ -266,12 +266,19 @@ void packetReceptionTask (void * pvParams){
   }
 } 
 #define DATA_STREAM_TIMEOUT (1500)
+#define FAST_RECOVERY_TIMEOUT (150)
 void dataStreamMonitorTask (void * pvParams){
   static const std::string accessIdentifier = "MONITOR";
   static uint32_t currentTime; //for legibility
   while(1){
-    vTaskDelay(500);
-    currentTime = millis(); 
+    vTaskDelay(100);
+
+    // // Attempt a fast recovery. If the RX buffer is not read fast enough, the next interrupt will be missed. 
+    // if ((internalNetworkStack.isNetworkAccessingResources() == false) && (internalNetworkStack.getDataPlaneBytesAvailable() >= FRAME_SIZE) && (internalNetworkStack.timeElapsedSinceLastDataBufferAccess() > FAST_RECOVERY_TIMEOUT)){
+    //   dataStreamReceived();
+    //   continue;
+    // }
+
     /*This is a VERY long list of conditionals to execute, but it boils down to:
     * 1.) Is there a connection (the buffer size doesn't matter otherwise)?
     * 2.) Is the buffer available to be written to?
