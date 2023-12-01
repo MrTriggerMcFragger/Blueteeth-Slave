@@ -72,37 +72,52 @@ int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
   
   static const std::string accessIdentifier = "A2DP";
 
-  memcpy(data, audioDelay, 512); 
+  memcpy(data, audioDelay, 512); //Sending zeroes will result in an audio delay
 
   // Serial.printf("A2DP task priority is %d\n\r", uxTaskPriorityGet(NULL));
-  while ((xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE)){
+  while ((xSemaphoreTake(internalNetworkStack.dataBufferMutex, 0) == pdFALSE)){
     vTaskDelay(10);
-    //Do nothing
   }
+  #ifdef MUTEX_TRACE
+  Serial.printf("[Data Buffer] %s took the mutex\n\r", accessIdentifier.c_str());
+  #endif
 
-  //If the data buffer size is very large or we're running out of data, yield. 
-  if (((internalNetworkStack.dataBuffer.size() == 0) || ((internalNetworkStack.dataBuffer.size() < (internalNetworkStack.getDataPlaneBytesAvailable()/2))))){
-    xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+  if ((internalNetworkStack.dataBuffer.size() < 512)){
+    #ifdef MUTEX_TRACE
+    Serial.printf("[Data Buffer] %s releasing the mutex\n\r", accessIdentifier.c_str());
+    #endif
+    xSemaphoreGive(internalNetworkStack.dataBufferMutex);
     return 512;
   }
-  
+
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
-
-  Serial.printf("Sending %d bytes of A2DP data (current buffer size is %d)... \n\r", end, internalNetworkStack.dataBuffer.size());
-
+  #ifdef STREAM_TRACE
+  Serial.printf("Sending %d bytes of A2DP data (current buffer size is %d)... ", end, internalNetworkStack.dataBuffer.size());
+  #endif
   for (int i = 0; i < end; i++){
-    internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
+    data[i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
-
   if (((end % 4) != 0) || ((internalNetworkStack.dataBuffer.size() % 4) != 0)){
     Serial.printf("A2DP Noticed Buffer Gone Bad (before (%d) vs after(%d)\n\r", end, internalNetworkStack.dataBuffer.size());
   }
+  #ifdef STREAM_TRACE
+  Serial.printf(" Done sending (buffer size is %d & checksum of data is %d)\n\r", internalNetworkStack.dataBuffer.size(),
+    [data, len](){
+      int checksum = 0;
+      for (int i = 0; i < len; i++){
+        checksum += data[i];
+      }
+      return checksum;
+    }()
+  );
+  #endif
 
-  // Serial.printf("Done sending (current buffer size is %d)\n\r", internalNetworkStack.dataBuffer.size());
+  internalNetworkStack.recordDataBufferAccessTime(); //Record time before giving up the mutex
 
-  xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
-
-  internalNetworkStack.recordDataBufferAccessTime();
+  #ifdef MUTEX_TRACE
+  Serial.printf("[Data Buffer] %s releasing the mutex\n\r", accessIdentifier.c_str());
+  #endif
+  xSemaphoreGive(internalNetworkStack.dataBufferMutex);
 
   return end;
 }
@@ -265,8 +280,8 @@ void packetReceptionTask (void * pvParams){
 
   }
 } 
-#define DATA_STREAM_TIMEOUT (1500)
-#define FAST_RECOVERY_TIMEOUT (500)
+#define DATA_STREAM_TIMEOUT (10000)
+#define FAST_RECOVERY_TIMEOUT (1000)
 void dataStreamMonitorTask (void * pvParams){
   static const std::string accessIdentifier = "MONITOR";
   while(1){
@@ -274,9 +289,25 @@ void dataStreamMonitorTask (void * pvParams){
 
     // Attempt a fast recovery. If the RX buffer is not read fast enough, the next interrupt will be missed. 
     if ((internalNetworkStack.isNetworkAccessingResources() == false) && (internalNetworkStack.getDataPlaneBytesAvailable() > 0) && (internalNetworkStack.timeElapsedSinceLastDataBufferAccess() > FAST_RECOVERY_TIMEOUT)){
-      //Don't need mutex as nobody else is accessing the data plane serial buffer
+      
+      if (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
+         continue; //check again after flushing the serial buffer
+      }
+      #ifdef MUTEX_TRACE
+      Serial.printf("[Data Plane] %s took the mutex\n\r", accessIdentifier.c_str());
+      #endif
+
+      #ifdef STREAM_TRACE
       Serial.print("Attempting a fast recovery\n\r");
+      #endif
+
       internalNetworkStack.flushDataPlaneSerialBuffer();
+      
+      #ifdef MUTEX_TRACE
+      Serial.printf("[Data Plane] %s releasing the mutex\n\r", accessIdentifier.c_str());
+      #endif
+      xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+
       continue;
     }
 
@@ -288,21 +319,43 @@ void dataStreamMonitorTask (void * pvParams){
     */
     if ((a2dpSource.is_connected()) && (internalNetworkStack.timeElapsedSinceLastDataBufferAccess() > DATA_STREAM_TIMEOUT) && ((internalNetworkStack.dataBuffer.size() > 0) || (internalNetworkStack.getDataPlaneBytesAvailable()))){
 
-      if (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
-         continue; //check again after flushing the serial buffer
+      if (xSemaphoreTake(internalNetworkStack.dataBufferMutex, 0) == pdFALSE){
+         continue;
       }
+      #ifdef MUTEX_TRACE
+      Serial.printf("[Data Buffer] %s took the mutex\n\r", accessIdentifier.c_str());
+      #endif
 
       if (DATA_STREAM_TIMEOUT > internalNetworkStack.timeElapsedSinceLastDataBufferAccess()) //check again as this may have changed while trying to take the mutex
       {
-        xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+        #ifdef MUTEX_TRACE
+        Serial.printf("[Data Buffer] %s releasing the mutex\n\r", accessIdentifier.c_str());
+        #endif
+        xSemaphoreGive(internalNetworkStack.dataBufferMutex);
         continue;
       }
 
-      internalNetworkStack.flushDataPlaneSerialBuffer();
       internalNetworkStack.dataBuffer.resize(0);
+
+      #ifdef MUTEX_TRACE
+      Serial.printf("[Data Buffer] %s releasing the mutex\n\r", accessIdentifier.c_str());
+      #endif
+      xSemaphoreGive(internalNetworkStack.dataBufferMutex);
+
+      while (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
+        //Do nothing
+      }
+      #ifdef MUTEX_TRACE
+      Serial.printf("[Data Plane] %s took the mutex\n\r", accessIdentifier.c_str());
+      #endif
+
+      internalNetworkStack.flushDataPlaneSerialBuffer();
       
+      #ifdef MUTEX_TRACE
+      Serial.printf("[Data Buffer] %s releasing the mutex\n\r", accessIdentifier.c_str());
+      #endif
       xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
-      
+
       Serial.println("Timed out...\n\r");
       
       internalNetworkStack.dataBufferTimeoutReset();
