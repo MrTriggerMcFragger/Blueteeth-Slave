@@ -5,10 +5,7 @@ SemaphoreHandle_t uartMutex;
 TaskHandle_t terminalInputTaskHandle;
 TaskHandle_t packetReceptionTaskHandle;
 TaskHandle_t dataStreamMonitorTaskHandle;
-
-
 terminalParameters_t terminalParameters;
-int discoveryIdx;
 
 BluetoothA2DPSource a2dpSource;
 
@@ -21,47 +18,6 @@ extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 
 const uint8_t audioDelay[512] = { 0 };
 
-// /*  Callback for sending data to A2DP BT stream (BEST SO FAR)
-// *   
-// *   @data - Pointer to the data that needs to be populated.
-// *   @len - The number of bytes requested.
-// *   @return - The number of frames populated.
-// */ 
-// int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
-//   static int bytesInBuffer;
-//   static int zeroEntries;
-//   static int bytesInserted;
-//   static const std::string accessIdentifier = "A2DP";
-
-//   if (internalNetworkStack.dataBuffer.size() == 0){
-//     memcpy(data, audioDelay, 512); 
-//     return 512;
-//   }
-
-//   bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
-//   zeroEntries = (len - bytesInBuffer);
-//   if (zeroEntries > 0){
-//     zeroEntries += (zeroEntries % 4); //Make sure there are audio samples for each channel
-//     bytesInserted = len - zeroEntries; //update bytes in buffer as this is how many bytes will be streamed
-//   }
-//   else {
-//     zeroEntries = 0;
-//     bytesInserted = min(bytesInBuffer, len);
-//   }
-
-//   for (int i = 0; i < bytesInserted; ++i){
-//     data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-//   }  
-
-//   //Have to do print statements while interrupts are enabled.
-//   if ((bytesInBuffer % 4) != 0){
-//     Serial.printf("Something is very wrong with the stream. The buffer size is %d\n\r", internalNetworkStack.dataBuffer.size());
-//   }
-  
-//   return len;
-  
-// }
-
 // /*  Callback for sending data to A2DP BT stream
 // *   
 // *   @data - Pointer to the data that needs to be populated.
@@ -71,39 +27,22 @@ const uint8_t audioDelay[512] = { 0 };
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
   
   static const std::string accessIdentifier = "A2DP";
-
-  memcpy(data, audioDelay, 512); 
-
-  // Serial.printf("A2DP task priority is %d\n\r", uxTaskPriorityGet(NULL));
-  while ((xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE)){
-    vTaskDelay(10);
-    //Do nothing
-  }
-
-  //If the data buffer size is very large or we're running out of data, yield. 
-  if (((internalNetworkStack.dataBuffer.size() == 0) || ((internalNetworkStack.dataBuffer.size() < (internalNetworkStack.getDataPlaneBytesAvailable()/2))))){
-    xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
-    return 512;
-  }
   
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
 
-  Serial.printf("Sending %d bytes of A2DP data (current buffer size is %d)... \n\r", end, internalNetworkStack.dataBuffer.size());
+  // Serial.printf("Sending %d bytes of A2DP data (current buffer size is %d)... \n\r", end, internalNetworkStack.dataBuffer.size());
 
-  for (int i = 0; i < end; i++){
-    internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-  }  
+  deque<uint8_t>::iterator dataBufferIterator = internalNetworkStack.dataBuffer.begin();
+  int cnt = 0;
+  while (cnt < end ){ 
+    data[cnt++] = *(dataBufferIterator++);
+  } 
+  internalNetworkStack.dataBuffer.erase(internalNetworkStack.dataBuffer.begin(), dataBufferIterator);
 
   if (((end % 4) != 0) || ((internalNetworkStack.dataBuffer.size() % 4) != 0)){
     Serial.printf("A2DP Noticed Buffer Gone Bad (before (%d) vs after(%d)\n\r", end, internalNetworkStack.dataBuffer.size());
   }
-
-  // Serial.printf("Done sending (current buffer size is %d)\n\r", internalNetworkStack.dataBuffer.size());
-
-  xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
-
   internalNetworkStack.recordDataBufferAccessTime();
-
   return end;
 }
 
@@ -134,12 +73,12 @@ void setup() {
   2, // Priority
   &packetReceptionTaskHandle); // Task handler
 
-  xTaskCreate(dataStreamMonitorTask, // Task function
-  "DATA STREAM BUFFER MONITOR", // Task name
-  4096, // Stack depth 
-  NULL, 
-  3, // Priority
-  &dataStreamMonitorTaskHandle); // Task handler
+  // xTaskCreate(dataStreamMonitorTask, // Task function
+  // "DATA STREAM BUFFER MONITOR", // Task name
+  // 4096, // Stack depth 
+  // NULL, 
+  // 3, // Priority
+  // &dataStreamMonitorTaskHandle); // Task handler
 
 }
 
@@ -270,12 +209,13 @@ void packetReceptionTask (void * pvParams){
 void dataStreamMonitorTask (void * pvParams){
   static const std::string accessIdentifier = "MONITOR";
   while(1){
+
     vTaskDelay(100);
 
     // Attempt a fast recovery. If the RX buffer is not read fast enough, the next interrupt will be missed. 
     if ((internalNetworkStack.isNetworkAccessingResources() == false) && (internalNetworkStack.getDataPlaneBytesAvailable() > 0) && (internalNetworkStack.timeElapsedSinceLastDataBufferAccess() > FAST_RECOVERY_TIMEOUT)){
       //Don't need mutex as nobody else is accessing the data plane serial buffer
-      Serial.print("Attempting a fast recovery\n\r");
+      // Serial.print("Attempting a fast recovery\n\r");
       internalNetworkStack.flushDataPlaneSerialBuffer();
       continue;
     }
