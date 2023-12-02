@@ -27,32 +27,59 @@ const uint8_t audioDelay[512] = { 0 };
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
   
   static const std::string accessIdentifier = "A2DP";
-  
+
+  if (internalNetworkStack.dataBuffer.size() == 0){
+    return 0;
+  }
+
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
 
-  // Serial.printf("Sending %d bytes of A2DP data (current buffer size is %d)... \n\r", end, internalNetworkStack.dataBuffer.size());
+  int timestamp1 = millis();
 
-  deque<uint8_t>::iterator dataBufferIterator = internalNetworkStack.dataBuffer.begin();
-  
-  int cnt = 0;
-  while (cnt < end ){ 
-    data[cnt++] = *(dataBufferIterator++);
-  }
-
+  // Serial.println("A2DP trying to get the mutex!");
   while (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
+  // while (xSemaphoreTakeFromISR(internalNetworkStack.dataBuffer.size(), NULL) == pdFALSE){
+    // Serial.printf("A2DP was blocked...\n\r");
     vPortYield();
   }
-  internalNetworkStack.dataBuffer.erase(internalNetworkStack.dataBuffer.begin(), dataBufferIterator);
+  // Serial.println("A2DP got the mutex!");
+
+  int before = internalNetworkStack.dataBuffer.size();
+  int cnt = 0;
+  
+  while (cnt < end ){ 
+    if (cnt >= 512){
+      Serial.print("What is wrong with this stupid fucking software\n\r");
+      break;
+    }
+    data[cnt++] = internalNetworkStack.dataBuffer.front();
+    internalNetworkStack.dataBuffer.pop_front();
+  }
+  // Serial.printf("%s releasing the mutex\n\r", accessIdentifier);
+  // xSemaphoreGiveFromISR(internalNetworkStack.dataPlaneMutex, NULL);
   xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
 
-  if (((end % 4) != 0) || ((internalNetworkStack.dataBuffer.size() % 4) != 0)){
-    Serial.printf("A2DP Noticed Buffer Gone Bad (before %d vs after %d)\n\r", end, internalNetworkStack.dataBuffer.size());
+  // internalNetworkStack.dataBuffer.erase(internalNetworkStack.dataBuffer.begin(), dataBufferIterator);
+  int timestamp2 = millis();
+
+  if ((internalNetworkStack.dataBuffer.size() % 4) != 0){
+    Serial.println();
+    Serial.printf("A2DP is reporting that the buffer went bad\n\r");
+    Serial.printf("Before sending [%d] I had %d bytes in my buffer, I sent %d bytes, and now [%d] I have %d bytes in my buffer left\n\r", timestamp1, before, cnt, timestamp2, internalNetworkStack.dataBuffer.size());
+    Serial.println();
   }
+  
   internalNetworkStack.recordDataBufferAccessTime();
   return end;
 }
 
 int32_t a2dpNoDataSent(uint8_t * data, int32_t length){
+  while (xSemaphoreTakeFromISR(internalNetworkStack.dataBuffer.size(), NULL) == pdFALSE){
+    // Serial.printf("A2DP was blocked...\n\r");
+    vPortYield();
+  }
+  internalNetworkStack.dataBuffer.resize(0);
+  xSemaphoreGiveFromISR(internalNetworkStack.dataPlaneMutex, NULL);
   return 0;
 }
 
@@ -79,12 +106,12 @@ void setup() {
   2, // Priority
   &packetReceptionTaskHandle); // Task handler
 
-  xTaskCreate(dataStreamMonitorTask, // Task function
-  "DATA STREAM BUFFER MONITOR", // Task name
-  4096, // Stack depth 
-  NULL, 
-  3, // Priority
-  &dataStreamMonitorTaskHandle); // Task handler
+  // xTaskCreate(dataStreamMonitorTask, // Task function
+  // "DATA STREAM BUFFER MONITOR", // Task name
+  // 4096, // Stack depth 
+  // NULL, 
+  // 3, // Priority
+  // &dataStreamMonitorTaskHandle); // Task handler
 
 }
 
@@ -136,7 +163,7 @@ uint32_t inline byteBufferCheckSum(deque<uint8_t> buffer){
 void packetReceptionTask (void * pvParams){
   while(1){
     vTaskSuspend(packetReceptionTaskHandle);
-    Serial.print("Processing received packet...\n\r");
+    // Serial.print("Processing received packet...\n\r");
     BlueteethPacket packetReceived = internalNetworkStack.getPacket();
 
     uint8_t srcAddr = internalNetworkStack.getAddress();
@@ -180,7 +207,7 @@ void packetReceptionTask (void * pvParams){
       case STREAM: {
         response.type = STREAM_RESULTS;
         uint32_t startTime = millis();
-        while(internalNetworkStack.dataBuffer.size() <= DATA_STREAM_TEST_SIZE && ((millis() - startTime) < 1000)){ 
+        while(internalNetworkStack.dataBuffer.size() <= DATA_STREAM_TEST_SIZE){ // && ((millis() - startTime) < 1000)){ 
           // Serial.print("Waiting for data...\n\r");
         } //Wait till the buffer is at least 95% full
         #ifdef TIME_STREAMING
