@@ -32,41 +32,38 @@ int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
     return 0;
   }
 
+  // while (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
+  // // while (xSemaphoreTakeFromISR(internalNetworkStack.dataBuffer.size(), NULL) == pdFALSE){
+  //   // Serial.printf("A2DP was blocked...\n\r");
+  //   vPortYield();
+  // }
+
   int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
-
-  int timestamp1 = millis();
-
-  // Serial.println("A2DP trying to get the mutex!");
-  while (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
-  // while (xSemaphoreTakeFromISR(internalNetworkStack.dataBuffer.size(), NULL) == pdFALSE){
-    // Serial.printf("A2DP was blocked...\n\r");
-    vPortYield();
-  }
-  // Serial.println("A2DP got the mutex!");
-
+  end -= (end % 4);
+  
   int before = internalNetworkStack.dataBuffer.size();
   int cnt = 0;
   
+  // Serial.printf("end = %d, ", end);
+
   while (cnt < end ){ 
-    if (cnt >= 512){
-      Serial.print("What is wrong with this stupid fucking software\n\r");
-      break;
-    }
     data[cnt++] = internalNetworkStack.dataBuffer.front();
     internalNetworkStack.dataBuffer.pop_front();
   }
-  // Serial.printf("%s releasing the mutex\n\r", accessIdentifier);
-  // xSemaphoreGiveFromISR(internalNetworkStack.dataPlaneMutex, NULL);
-  xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
 
-  // internalNetworkStack.dataBuffer.erase(internalNetworkStack.dataBuffer.begin(), dataBufferIterator);
-  int timestamp2 = millis();
+  // Serial.printf("cnt = %d\n\r", cnt);
+
+  // Serial.printf("%s releasing the mutex\n\r", accessIdentifier);
+  // xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
 
   if ((internalNetworkStack.dataBuffer.size() % 4) != 0){
     Serial.println();
     Serial.printf("A2DP is reporting that the buffer went bad\n\r");
-    Serial.printf("Before sending [%d] I had %d bytes in my buffer, I sent %d bytes, and now [%d] I have %d bytes in my buffer left\n\r", timestamp1, before, cnt, timestamp2, internalNetworkStack.dataBuffer.size());
+    Serial.printf("Before sending I had %d bytes in my buffer, I sent %d bytes, and now I have %d bytes in my buffer left\n\r", before, cnt, internalNetworkStack.dataBuffer.size());
     Serial.println();
+
+    internalNetworkStack.dataBuffer.resize(0);
+    internalNetworkStack.flushDataPlaneSerialBuffer();
   }
   
   internalNetworkStack.recordDataBufferAccessTime();
