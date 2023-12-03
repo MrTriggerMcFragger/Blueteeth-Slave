@@ -8,7 +8,6 @@ TaskHandle_t dataStreamMonitorTaskHandle;
 
 
 terminalParameters_t terminalParameters;
-int discoveryIdx;
 
 BluetoothA2DPSource a2dpSource;
 
@@ -19,64 +18,13 @@ BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need poi
 extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 #endif
 
-/*  Callback for sending data to A2DP BT stream
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
-  
-  // Serial.printf("Buffer size is %d and the requested data is %d\n\r", internalNetworkStack.dataBuffer.size(), len);
-  int realDataInsertionIncrement; 
-  int samplesInBuffer = internalNetworkStack.dataBuffer.size(); 
-
-  if (samplesInBuffer == 0){
-    realDataInsertionIncrement = len + 1; //never insert real data
-  }
-  else {
-      realDataInsertionIncrement = 1; //insert real data each step
-      if ((len - samplesInBuffer) > 0){
-        realDataInsertionIncrement = ceil((float)(len - samplesInBuffer) / samplesInBuffer) + 1;
-      }
-  }
-
-  for (int i = 0; i < len; i++){
-
-    if ( ( (i + 1) % realDataInsertionIncrement ) != 0 ){ //stuff zeroes
-      data[i] = 0;
-    }
-    else {  //place real data
-      data[i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-    }
-  
-  }
-
-  return len;
-  
-}
-
-/*  Callback for sending data to A2DP BT stream directly from the serial buffer
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t a2dpDirectTransfer(uint8_t * data, int32_t len) {
-  
-  int32_t dataAvailable = min(len, internalNetworkStack.dataPlane->available()); 
-  internalNetworkStack.dataPlane -> readBytes(data, dataAvailable);
-  return dataAvailable;
-  
-}
-
 /*  Callback for sending data to A2DP BT stream (BEST SO FAR)
 *   
 *   @data - Pointer to the data that needs to be populated.
 *   @len - The number of bytes requested.
 *   @return - The number of frames populated.
 */ 
-int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
+int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
 
   // vTaskPrioritySet(NULL, 25); //set to be higher than the receive task
   
@@ -100,49 +48,6 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
   return len;
   
 }
-
-/*  Callback for cycling the buffer
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t cycleBuffer(uint8_t * data, int32_t len) {
-
-  static int cnt = 0;
-
-  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len); 
-
-  for (int i = 0; i < end; i++){
-    data[i] = internalNetworkStack.dataBuffer.at(cnt); //internalNetworkStack.dataBuffer.pop_front();
-    cnt = ( cnt + 1 ) % internalNetworkStack.dataBuffer.size();
-  }
-
-  return end;
-  
-}
-
-
-
-/*  Testfunction to ensure data stream works (plays pre-recorded data)
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-// int32_t streamPianoSamples(uint8_t * frames, int32_t frameCount) {
-  
-//   static size_t cnt = 0;
-
-//   int i = 0;
-//   while (i < frameCount){
-//     frames[i++] = piano16bit_raw[cnt];
-//     cnt = ( cnt + 1 ) % sizeof(piano16bit_raw);
-//   }
-
-//   return frameCount;
-  
-// }
 
 void setup() {
   
@@ -235,11 +140,7 @@ void packetReceptionTask (void * pvParams){
       case CONNECT:
         a2dpSource.set_auto_reconnect(true);
         Serial.print("Set autoreconnect... ");
-        #ifdef DIRECT_TRANSFER
-        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpDirectTransfer); 
-        #else
-        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrievalAlt); 
-        #endif
+        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrieval);
         Serial.print("Attempting to connect... ");
         // a2dpSource.set_volume(10);
         // Serial.print("Set volume...");
@@ -297,6 +198,8 @@ void packetReceptionTask (void * pvParams){
 
   }
 } 
+
+
 #define DATA_STREAM_TIMEOUT (1000)
 void dataStreamMonitorTask (void * pvParams){
   while(1){
@@ -367,7 +270,7 @@ void terminalInputTask(void * params) {
 
             a2dpSource.set_auto_reconnect(true);
             Serial.print("Set autoreconnect... ");
-            a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalNoZeroes); 
+            a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrieval); 
             Serial.print("Attempting to connect... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
@@ -397,7 +300,7 @@ void terminalInputTask(void * params) {
           case STREAM:
             a2dpSource.set_auto_reconnect(true);
             Serial.print("Direct stream starting....");
-            a2dpSource.start_raw("Wireless Speaker", a2dpDirectTransfer); 
+            a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrieval); 
             Serial.print("Attempting to connect... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
