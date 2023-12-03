@@ -28,6 +28,11 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
 
   // vTaskPrioritySet(NULL, 25); //set to be higher than the receive task
   
+  while (xSemaphoreTake(internalNetworkStack.dataBufferMutex, 0) == pdFALSE){
+    //Do nothing
+    // Serial.print("I dont think we should ever get here...\n\r");
+  }
+
   int bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
   int zeroEntries = (len - bytesInBuffer);
   if (zeroEntries > 0){
@@ -44,6 +49,8 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   for (int i = 0; i < bytesInBuffer; i++){
     data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
+
+  xSemaphoreGive(internalNetworkStack.dataBufferMutex);
 
   return len;
   
