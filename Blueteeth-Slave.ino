@@ -77,6 +77,8 @@ int32_t a2dpDirectTransfer(uint8_t * data, int32_t len) {
 *   @return - The number of frames populated.
 */ 
 int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
+
+  // vTaskPrioritySet(NULL, 25); //set to be higher than the receive task
   
   int bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
   int zeroEntries = (len - bytesInBuffer);
@@ -97,27 +99,6 @@ int32_t a2dpSourceDataRetrievalAlt(uint8_t * data, int32_t len) {
 
   return len;
   
-}
-
-/*  Callback for sending data to A2DP BT stream
-*   
-*   @data - Pointer to the data that needs to be populated.
-*   @len - The number of bytes requested.
-*   @return - The number of frames populated.
-*/ 
-int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
-
-
-  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
-  
-  if ((end % 2) != 0){
-    Serial.print("How?!?\n\r");
-  }
-
-  for (int i = 0; i < end; i++){
-    internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
-  }  
-  return end;
 }
 
 /*  Callback for cycling the buffer
