@@ -18,6 +18,8 @@ extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 
 const uint8_t audioDelay[512] = { 0 };
 
+bool naughtyFlag;
+
 // /*  Callback for sending data to A2DP BT stream
 // *   
 // *   @data - Pointer to the data that needs to be populated.
@@ -25,48 +27,41 @@ const uint8_t audioDelay[512] = { 0 };
 // *   @return - The number of frames populated.
 // */ 
 int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
-  
+  static int end;
   static const std::string accessIdentifier = "A2DP";
 
-  if (internalNetworkStack.dataBuffer.size() == 0){
+  static int t;
+  // t = millis();
+  // Serial.printf("Time between callbacks was %d\n\r", t);
+
+  if (internalNetworkStack.dataBuffer.size() < 4){
     return 0;
   }
 
-  // while (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
-  // // while (xSemaphoreTakeFromISR(internalNetworkStack.dataBuffer.size(), NULL) == pdFALSE){
-  //   // Serial.printf("A2DP was blocked...\n\r");
-  //   vPortYield();
-  // }
+  // vTaskPrioritySet(NULL, 24);
+  while (xSemaphoreTake(internalNetworkStack.dataPlaneMutex, 0) == pdFALSE){
+    vPortYield();
+  }
+  naughtyFlag = false;
+  auto before = internalNetworkStack.dataBuffer.size();
 
-  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
-  end -= (end % 4);
-  
-  int before = internalNetworkStack.dataBuffer.size();
-  int cnt = 0;
-  
-  // Serial.printf("end = %d, ", end);
+  end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
 
-  while (cnt < end ){ 
-    data[cnt++] = internalNetworkStack.dataBuffer.front();
+  if ( ((end % 4) != 0) || (end < 0) || (end > MAX_DATA_BUFFER_SIZE) ){ 
+    Serial.printf("Whoops!!! (%d)\n\r", end);
+  } 
+
+  for (int i = 0; i < end; i++){ 
+    data[i] = internalNetworkStack.dataBuffer.front();
     internalNetworkStack.dataBuffer.pop_front();
   }
-
-  // Serial.printf("cnt = %d\n\r", cnt);
+  
+  if ((before - end) != internalNetworkStack.dataBuffer.size()) Serial.printf("The buffer went bad. The naughty flag was set to %d", naughtyFlag);
 
   // Serial.printf("%s releasing the mutex\n\r", accessIdentifier);
-  // xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
+  xSemaphoreGive(internalNetworkStack.dataPlaneMutex);
 
-  if ((internalNetworkStack.dataBuffer.size() % 4) != 0){
-    Serial.println();
-    Serial.printf("A2DP is reporting that the buffer went bad\n\r");
-    Serial.printf("Before sending I had %d bytes in my buffer, I sent %d bytes, and now I have %d bytes in my buffer left\n\r", before, cnt, internalNetworkStack.dataBuffer.size());
-    Serial.println();
-
-    internalNetworkStack.dataBuffer.resize(0);
-    internalNetworkStack.flushDataPlaneSerialBuffer();
-  }
-  
-  internalNetworkStack.recordDataBufferAccessTime();
+  // internalNetworkStack.recordDataBufferAccessTime();
   return end;
 }
 
@@ -81,6 +76,8 @@ int32_t a2dpNoDataSent(uint8_t * data, int32_t length){
 }
 
 void setup() {
+
+  naughtyFlag = false;
   
   //Start Serial comms
   Serial.begin(115200);
