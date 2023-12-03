@@ -25,27 +25,45 @@ extern uint32_t streamTime; //TEMPORARY DEBUG VARIABLE (REMOVE LATER)
 *   @return - The number of frames populated.
 */ 
 int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
+  static int bytesInBuffer;
+  static int bytesToPopulate;
+  static int zeroEntries;
+  static int zeros[512] = {0};
 
-  // vTaskPrioritySet(NULL, 25); //set to be higher than the receive task
+  const auto corruptionCheck = [](int toBeChecked) -> bool {
+    if ((toBeChecked % 4) != 0){
+      return true;
+    }
+    return false;
+  };
   
+  memcpy(data, zeros, 512);
+
   xSemaphoreTake(internalNetworkStack.dataBufferMutex, portMAX_DELAY);
 
-  int bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
-  int zeroEntries = (len - bytesInBuffer);
+  bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
+  zeroEntries = (len - bytesInBuffer);
   if (zeroEntries > 0){
     zeroEntries += (zeroEntries % 2); //Make sure there are an even number as 2 bytes per sample
     zeroEntries += (zeroEntries % 4); //Make sure there are audio samples for each channel
-    bytesInBuffer = len - zeroEntries; //update bytes in buffer as this is how many bytes will be streamed
-    for (int i = 0; i < zeroEntries; i++) data[i] = 0;
+    bytesToPopulate = len - zeroEntries; //update bytes in buffer as this is how many bytes will be streamed
   }
   else {
     zeroEntries = 0;
-    bytesInBuffer = min(bytesInBuffer, len);
+    bytesToPopulate = min(bytesInBuffer, len);
   }
 
-  for (int i = 0; i < bytesInBuffer; i++){
+  if (corruptionCheck(bytesToPopulate)){
+    printf("Something is wrong with the callback\n\r");
+  }
+
+  for (int i = 0; i < bytesToPopulate; i++){
     data[zeroEntries + i] = internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
   }  
+
+  if (corruptionCheck(internalNetworkStack.dataBuffer.size())){
+    Serial.printf("Something went wrong with the buffer\n\r");
+  }
 
   xSemaphoreGive(internalNetworkStack.dataBufferMutex);
 
@@ -209,8 +227,10 @@ void dataStreamMonitorTask (void * pvParams){
   while(1){
     vTaskDelay(500);
     if ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis()){
+      xSemaphoreTake(internalNetworkStack.dataBufferMutex, portMAX_DELAY);
       internalNetworkStack.flushDataPlaneSerialBuffer();
-      internalNetworkStack.dataBuffer.resize(0);
+      internalNetworkStack.dataBuffer.clear();
+      xSemaphoreGive(internalNetworkStack.dataBufferMutex);
       if (a2dpSource.is_connected()){
         Serial.print("Timed out...\n\r");
       }
