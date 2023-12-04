@@ -40,6 +40,7 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   memcpy(data, zeros, 512);
 
   xSemaphoreTake(internalNetworkStack.dataBufferMutex, portMAX_DELAY);
+  vTaskPrioritySet(NULL, 24);
 
   bytesInBuffer = internalNetworkStack.dataBuffer.size(); 
   zeroEntries = (len - bytesInBuffer);
@@ -66,6 +67,7 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   }
 
   xSemaphoreGive(internalNetworkStack.dataBufferMutex);
+  vTaskPrioritySet(NULL, 19);
 
   return len;
   
@@ -226,11 +228,13 @@ void packetReceptionTask (void * pvParams){
 void dataStreamMonitorTask (void * pvParams){
   while(1){
     vTaskDelay(500);
-    if ((internalNetworkStack.getLastDataReceptionTime() + DATA_STREAM_TIMEOUT) < millis()){
+    if (internalNetworkStack.getTimeElapsedSinceLastDataBufferAccess() > DATA_STREAM_TIMEOUT){
       xSemaphoreTake(internalNetworkStack.dataBufferMutex, portMAX_DELAY);
+      vTaskPrioritySet(NULL, 19);
       internalNetworkStack.flushDataPlaneSerialBuffer();
       internalNetworkStack.dataBuffer.clear();
       xSemaphoreGive(internalNetworkStack.dataBufferMutex);
+      vTaskPrioritySet(NULL, 2);
       if (a2dpSource.is_connected()){
         Serial.print("Timed out...\n\r");
       }
