@@ -66,6 +66,8 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
     Serial.printf("Something went wrong with the buffer\n\r");
   }
 
+  internalNetworkStack.recordDataBufferAccessTime();
+
   xSemaphoreGive(internalNetworkStack.dataBufferMutex);
   vTaskPrioritySet(NULL, 19);
 
@@ -238,7 +240,7 @@ void dataStreamMonitorTask (void * pvParams){
       if (a2dpSource.is_connected()){
         Serial.print("Timed out...\n\r");
       }
-      internalNetworkStack.recordDataReceptionTime(); //need to reset timeout
+      internalNetworkStack.resetDataBufferTimeout(); //need to reset timeout
     }
   }
 }
