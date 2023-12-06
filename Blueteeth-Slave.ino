@@ -75,6 +75,78 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   
 }
 
+<<<<<<< Updated upstream
+=======
+/*  Callback for sending data to A2DP BT stream
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+int32_t a2dpSourceDataRetrievalNoZeroes(uint8_t * data, int32_t len) {
+
+
+  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len);
+  
+  if ((end % 2) != 0){
+    Serial.print("How?!?\n\r");
+  }
+
+  for (int i = 0; i < end; i++){
+    internalNetworkStack.dataBuffer.front(); internalNetworkStack.dataBuffer.pop_front();
+  }  
+  return end;
+}
+
+/*  Callback for cycling the buffer
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+int32_t cycleBuffer(uint8_t * data, int32_t len) {
+
+  static int cnt = 0;
+
+  int end = min(internalNetworkStack.dataBuffer.size(), (size_t) len); 
+
+  for (int i = 0; i < end; i++){
+    data[i] = internalNetworkStack.dataBuffer.at(cnt); //internalNetworkStack.dataBuffer.pop_front();
+    cnt = ( cnt + 1 ) % internalNetworkStack.dataBuffer.size();
+  }
+
+  return end;
+  
+}
+
+
+
+/*  Testfunction to ensure data stream works (plays pre-recorded data)
+*   
+*   @data - Pointer to the data that needs to be populated.
+*   @len - The number of bytes requested.
+*   @return - The number of frames populated.
+*/ 
+// int32_t streamPianoSamples(uint8_t * frames, int32_t frameCount) {
+  
+//   static size_t cnt = 0;
+
+//   int i = 0;
+//   while (i < frameCount){
+//     frames[i++] = piano16bit_raw[cnt];
+//     cnt = ( cnt + 1 ) % sizeof(piano16bit_raw);
+//   }
+
+//   return frameCount;
+  
+// }
+
+void connection_state_changed(esp_a2d_connection_state_t state, void *ptr){
+  Serial.print("A2DP connection State Changed: ");
+  Serial.println(state);
+}
+
+>>>>>>> Stashed changes
 void setup() {
   
   //Start Serial comms
@@ -98,12 +170,17 @@ void setup() {
   1, // Priority
   &packetReceptionTaskHandle); // Task handler
 
+<<<<<<< Updated upstream
   xTaskCreate(dataStreamMonitorTask, // Task function
   "DATA STREAM BUFFER MONITOR", // Task name
   4096, // Stack depth 
   NULL, 
   2, // Priority
   &dataStreamMonitorTaskHandle); // Task handler
+=======
+  a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrievalNoZeroes); 
+  a2dpSource.disconnect();
+>>>>>>> Stashed changes
 
 }
 
@@ -304,7 +381,11 @@ void terminalInputTask(void * params) {
 
             a2dpSource.set_auto_reconnect(true);
             Serial.print("Set autoreconnect... ");
+<<<<<<< Updated upstream
             a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrieval); 
+=======
+            a2dpSource.reconnect();
+>>>>>>> Stashed changes
             Serial.print("Attempting to connect... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
