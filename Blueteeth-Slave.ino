@@ -28,7 +28,7 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   static int bytesInBuffer;
   static int bytesToPopulate;
   static int zeroEntries;
-  static int zeros[512] = {0};
+  const static int zeros[512] = {0};
 
   const auto corruptionCheck = [](int toBeChecked) -> bool {
     if ((toBeChecked % 4) != 0){
@@ -93,14 +93,14 @@ void setup() {
 
   xTaskCreate(packetReceptionTask, // Task function
   "PACKET RECEPTION HANDLER", // Task name
-  4096, // Stack size 
+  2048, // Stack size 
   NULL, 
   1, // Priority
   &packetReceptionTaskHandle); // Task handler
 
   xTaskCreate(dataStreamMonitorTask, // Task function
   "DATA STREAM BUFFER MONITOR", // Task name
-  4096, // Stack depth 
+  2048, // Stack depth 
   NULL, 
   2, // Priority
   &dataStreamMonitorTaskHandle); // Task handler
@@ -181,7 +181,7 @@ void packetReceptionTask (void * pvParams){
       case DISCONNECT:
         a2dpSource.set_auto_reconnect(false);
         Serial.print("Unsetting autoreconnect... ");
-        a2dpSource.disconnect(); 
+        a2dpSource.end(); 
         Serial.print("Disconnecting... ");
         // a2dpSource.set_volume(10);
         // Serial.print("Set volume...");
@@ -315,7 +315,7 @@ void terminalInputTask(void * params) {
 
             a2dpSource.set_auto_reconnect(false);
             Serial.print("Unsetting autoreconnect... ");
-            a2dpSource.disconnect(); 
+            a2dpSource.end(); 
             Serial.print("Disconnecting... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
