@@ -63,7 +63,7 @@ int32_t a2dpSourceDataRetrieval(uint8_t * data, int32_t len) {
   }  
 
   if (corruptionCheck(internalNetworkStack.dataBuffer.size())){
-    Serial.printf("Something went wrong with the buffer\n\r");
+    // Serial.printf("Something went wrong with the buffer\n\r");
   }
 
   internalNetworkStack.recordDataBufferAccessTime();
