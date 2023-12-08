@@ -93,14 +93,14 @@ void setup() {
 
   xTaskCreate(packetReceptionTask, // Task function
   "PACKET RECEPTION HANDLER", // Task name
-  2048, // Stack size 
+  4096, // Stack size 
   NULL, 
   1, // Priority
   &packetReceptionTaskHandle); // Task handler
 
   xTaskCreate(dataStreamMonitorTask, // Task function
   "DATA STREAM BUFFER MONITOR", // Task name
-  2048, // Stack depth 
+  4096, // Stack depth 
   NULL, 
   2, // Priority
   &dataStreamMonitorTaskHandle); // Task handler
@@ -166,6 +166,7 @@ void packetReceptionTask (void * pvParams){
       case CONNECT:
         a2dpSource.set_auto_reconnect(true);
         Serial.print("Set autoreconnect... ");
+        //(char *) packetReceived.payload
         a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrieval);
         Serial.print("Attempting to connect... ");
         // a2dpSource.set_volume(10);
