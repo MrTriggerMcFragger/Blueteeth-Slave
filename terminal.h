@@ -5,7 +5,8 @@
 #include "BlueteethInternalNetworkStack.h"
 
 typedef struct {
-  int scanIdx;
+  int argCount;
+  String ssid;
 } terminalParameters_t;
 
 //Name: format_terminal_for_new_entry
@@ -50,6 +51,9 @@ PacketType argument_mapping(char * arguments[MAX_ARGS], uint8_t num_args, termin
     }
 
     else if (0 == strcmp(arguments[0], "connect")){ 
+      if (num_args > 1) {
+        terminalParameters.ssid = String(arguments[1]) + String(arguments[2]);
+      }
       return CONNECT;
     }
 

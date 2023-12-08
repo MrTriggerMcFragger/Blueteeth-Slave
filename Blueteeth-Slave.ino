@@ -1,4 +1,5 @@
 #include "Blueteeth-Slave.h"
+#include "stdio.h"
 
 char input_buffer[MAX_BUFFER_SIZE];
 SemaphoreHandle_t uartMutex;
@@ -10,6 +11,7 @@ TaskHandle_t dataStreamMonitorTaskHandle;
 terminalParameters_t terminalParameters;
 
 BluetoothA2DPSource a2dpSource;
+String target; 
 
 BlueteethBaseStack internalNetworkStack(10, &packetReceptionTaskHandle, &Serial2, &Serial1);
 BlueteethBaseStack * internalNetworkStackPtr = &internalNetworkStack; //Need pointer for run-time polymorphism
@@ -104,6 +106,10 @@ void setup() {
   NULL, 
   2, // Priority
   &dataStreamMonitorTaskHandle); // Task handler
+  a2dpSource.set_ssid_callback(ssidSearchCallback);
+
+  a2dpSource.start();
+  target = "";
 
 }
 
@@ -166,7 +172,6 @@ void packetReceptionTask (void * pvParams){
       case CONNECT:
         a2dpSource.set_auto_reconnect(true);
         Serial.print("Set autoreconnect... ");
-        a2dpSource.start_raw( (char *) packetReceived.payload, a2dpSourceDataRetrieval);
         Serial.print("Attempting to connect... ");
         // a2dpSource.set_volume(10);
         // Serial.print("Set volume...");
@@ -274,6 +279,21 @@ void inline printBuffer(int endPos){
   Serial.print("\0338"); //restore cursor position
 }
 
+bool ssidSearchCallback(const char *ssid, esp_bd_addr_t address, int rrsi) {
+  Serial.println("Connect Params");
+  Serial.println(ssid);
+  String ID = String(ssid);
+  Serial.println(*address);
+  Serial.println(rrsi,DEC);
+  if (ID.equals(target)) {
+    Serial.println("Connection Accepted");
+    return true;
+  } else {
+    Serial.println("Connection Refused");
+    return false; 
+  }
+}
+
 /*  Take in user inputs and handle pre-defined commands.
 *
 */
@@ -302,23 +322,31 @@ void terminalInputTask(void * params) {
         switch ( handle_input(input_buffer, terminalParameters) ){
           case CONNECT:
 
-            a2dpSource.set_auto_reconnect(true);
+            if (terminalParameters.argCount > 1) {
+              target = terminalParameters.ssid; 
+              Serial.print("Targeting ");
+              Serial.println(target);
+            }
             Serial.print("Set autoreconnect... ");
-            a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrieval); 
-            Serial.print("Attempting to connect... ");
+            a2dpSource.set_connected(true);
+            //a2dpSource.set_nvs_init(true);
+            //a2dpSource.set_reset_ble(true);
+            //a2dpSource.start_raw("Wireless Speaker", a2dpSourceDataRetrieval); 
+            Serial.print("Connected: True");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
             Serial.print("\n\r");
             break;
           
           case DISCONNECT:
-
-            a2dpSource.set_auto_reconnect(false);
-            Serial.print("Unsetting autoreconnect... ");
-            a2dpSource.end(); 
-            Serial.print("Disconnecting... ");
+            a2dpSource.set_connected(false);
+            Serial.print("Connected: False");
+            //a2dpSource.disconnect(); 
+            //Serial.print("Disconnecting... ");
             // a2dpSource.set_volume(10);
             // Serial.print("Set volume...");
+            Serial.print("\n\r");
+            Serial.print("Setting target to null");
             Serial.print("\n\r");
             break;
 
